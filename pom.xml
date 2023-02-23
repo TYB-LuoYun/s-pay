@@ -5,9 +5,9 @@
 
     <groupId>com.dicomclub</groupId>
     <modelVersion>4.0.0</modelVersion>
-    <artifactId>webris-interface</artifactId>
+    <artifactId>s-pay</artifactId>
     <version>0.0.1-SNAPSHOT</version>
-    <name>webris-interface</name>
+    <name>s-pay</name>
     <properties>
         <java.version>1.8</java.version>
         <spring-boot.version>2.3.7.RELEASE</spring-boot.version>
@@ -226,7 +226,7 @@
                     <archive>
                         <manifest>
                             <!-- 项目启动类 -->
-                            <mainClass>com.dicomclub.WebrisInterfaceAppllication</mainClass>
+                            <mainClass>com.dicomclub.payment.SPayAppllication</mainClass>
                             <!-- 依赖的jar的目录前缀 -->
                             <classpathPrefix>../lib/</classpathPrefix>
                             <addClasspath>true</addClasspath>
