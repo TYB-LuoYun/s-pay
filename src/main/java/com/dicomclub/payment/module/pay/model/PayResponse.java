@@ -1,9 +1,11 @@
 package com.dicomclub.payment.module.pay.model;
 
+import com.dicomclub.payment.module.pay.enums.ChannelState;
 import com.dicomclub.payment.module.pay.enums.PayDataType;
 import com.dicomclub.payment.module.pay.enums.PayType;
 import lombok.Data;
 import org.apache.commons.lang3.StringUtils;
+import org.springframework.http.ResponseEntity;
 
 /**
  * @author ftm
@@ -11,6 +13,9 @@ import org.apache.commons.lang3.StringUtils;
  */
 @Data
 public abstract class PayResponse {
+
+
+    private ChannelState channelState;
 
     /**
      * 支付返回的body体，html 可直接嵌入网页使用
@@ -42,8 +47,11 @@ public abstract class PayResponse {
 
 
 
+    private String errCode;
 
-    private PayType payType;
+
+    private String errMsg;
+
 
 
 //  结果
@@ -101,4 +109,6 @@ public abstract class PayResponse {
         return "";
     }
 
+
+    abstract public ResponseEntity buildPaySuccessResponse();
 }

@@ -24,4 +24,14 @@ public enum PayDataType {
     private String code;
 
     private String name;
+
+
+    public static PayDataType getByCode(String code) {
+        for (PayDataType bestPayTypeEnum : PayDataType.values()) {
+            if (bestPayTypeEnum.code.equals(code)) {
+                return bestPayTypeEnum;
+            }
+        }
+        return null;
+    }
 }

@@ -72,19 +72,48 @@ public class PayContext {
     /**
      * 支付结果异步通知,notifyData 是json或者xml串
      */
-    public PayResponse asyncNotify(String notifyData){
+    public PayResponse asyncNotify(String notifyData,PayConfig payConfig){
         if (notifyData.startsWith("<xml>")) {
 //          微信
-            PayConfig payConfig = getDefaultPayConfig(PayType.WX);
+            if(payConfig == null){
+                payConfig = getDefaultPayConfig(PayType.WX);
+            }
             PayStrategy payStrategy = getPatStrategy(PayType.WX);
             return payStrategy.asyncNotify(notifyData,payConfig);
         } else {
-            PayConfig payConfig = getDefaultPayConfig(PayType.ALIPAY);
+            if(payConfig == null){
+                payConfig = getDefaultPayConfig(PayType.ALIPAY);
+            }
             PayStrategy payStrategy = getPatStrategy(PayType.ALIPAY);
             return payStrategy.asyncNotify(notifyData,payConfig);
         }
     }
 
+    public PayResponse asyncNotify(String notifyData){
+        return this.asyncNotify(notifyData,null );
+    }
+
+
+
+    public PayResponse asyncNotify(String notifyData,PayConfig payConfig,PayType payType){
+        if (PayType.WX == payType) {
+//          微信
+            if(payConfig == null){
+                payConfig = getDefaultPayConfig(PayType.WX);
+            }
+            PayStrategy payStrategy = getPatStrategy(PayType.WX);
+            return payStrategy.asyncNotify(notifyData,payConfig);
+        } else  if(PayType.ALIPAY == payType){
+            if(payConfig == null){
+                payConfig = getDefaultPayConfig(PayType.ALIPAY);
+            }
+            PayStrategy payStrategy = getPatStrategy(PayType.ALIPAY);
+            return payStrategy.asyncNotify(notifyData,payConfig);
+        }else{
+            return null;
+        }
+
+    }
 
 
 

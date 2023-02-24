@@ -3,6 +3,7 @@ package com.dicomclub.payment.module.pay.service.alipay.channel;
 import com.dicomclub.payment.module.pay.config.AliPayConfig;
 import com.dicomclub.payment.module.pay.config.PayConfig;
 import com.dicomclub.payment.module.pay.constants.AliPayConstants;
+import com.dicomclub.payment.module.pay.enums.PayDataType;
 import com.dicomclub.payment.module.pay.model.PayRequest;
 import com.dicomclub.payment.module.pay.model.PayResponse;
 import com.dicomclub.payment.module.pay.model.alipay.AliPayApi;
@@ -15,6 +16,8 @@ import com.dicomclub.payment.util.MapUtil;
 import com.dicomclub.payment.util.JsonUtil;
 import com.google.gson.FieldNamingPolicy;
 import com.google.gson.GsonBuilder;
+import net.glxn.qrgen.core.image.ImageType;
+import net.glxn.qrgen.javase.QRCode;
 import okhttp3.OkHttpClient;
 import okhttp3.logging.HttpLoggingInterceptor;
 import org.springframework.stereotype.Component;
@@ -23,8 +26,10 @@ import retrofit2.Response;
 import retrofit2.Retrofit;
 import retrofit2.converter.gson.GsonConverterFactory;
 
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.time.LocalDateTime;
+import java.util.Base64;
 
 /**
  * @author ftm
@@ -77,8 +82,28 @@ public class AlipayQRCodeService extends AliPayStrategy {
         AliPayResponse payResponse = new AliPayResponse();
         payResponse.setOutTradeNo(response.getTradeNo());
         payResponse.setOrderId(response.getOutTradeNo());
-        payResponse.setCodeUrl(response.getQrCode());
+        String qrCode = response.getQrCode();
+        if(request.getPayDataType() != null && request.getPayDataType() == PayDataType.CODE_URL){
+            payResponse.setCodeUrl(qrCode);
+        }else{
+            //          生成图片
+            ByteArrayOutputStream stream = QRCode.from(qrCode).to(ImageType.PNG).stream();
+            String base64String = Base64.getEncoder().encodeToString(stream.toByteArray());
+            payResponse.setCodeUrl("data:image/png;base64," +base64String);
+        }
+
         return payResponse;
+    }
+
+    public static void main(String[] args){
+
+        //          生成图片
+        ByteArrayOutputStream stream = QRCode.from("https://qr.alipay.com/bax0921762adutlhfx3n0048").to(ImageType.PNG).stream();
+
+        String base64String = Base64.getEncoder().encodeToString(stream.toByteArray());
+
+        System.out.println("data:image/png;base64," +base64String);
+
     }
 
 

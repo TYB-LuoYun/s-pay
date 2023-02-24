@@ -25,7 +25,7 @@ public enum PayChannel {
     ALIPAY_H5("alipay_h5", PayType.ALIPAY, "支付宝统一下单(h5)"),
 
 //  扫码付（用户扫码支付）
-    ALIPAY_QRCODE("alipay_precreate", PayType.ALIPAY, "支付宝统一收单线下交易预创建"),
+    ALIPAY_QRCODE("alipay_qrcode", PayType.ALIPAY, "支付宝统一收单线下交易预创建"),
 
 //  条码付 (用户付款码支付)
     ALIPAY_BARCODE("alipay_barcode", PayType.ALIPAY, "支付宝统一收单交易支付接口(付款码)"),

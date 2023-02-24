@@ -3,6 +3,7 @@ package com.dicomclub.payment.module.pay.service.wxpay;
 import com.dicomclub.payment.module.pay.config.PayConfig;
 import com.dicomclub.payment.module.pay.config.WxPayConfig;
 import com.dicomclub.payment.module.pay.constants.WxPayConstants;
+import com.dicomclub.payment.module.pay.enums.ChannelState;
 import com.dicomclub.payment.module.pay.enums.PayChannel;
 import com.dicomclub.payment.module.pay.enums.PayType;
 import com.dicomclub.payment.module.pay.model.PayRequest;
@@ -135,20 +136,27 @@ public class WxPayStrategy extends PayStrategy {
         //xml解析为对象
         WxPayAsyncResponse asyncResponse = (WxPayAsyncResponse) XmlUtil.toObject(notifyData, WxPayAsyncResponse.class);
 
-        if (!asyncResponse.getReturnCode().equals(WxPayConstants.SUCCESS)) {
-            throw new RuntimeException("【微信支付异步通知】发起支付, returnCode != SUCCESS, returnMsg = " + asyncResponse.getReturnMsg());
-        }
+
+        WxPayResponse channelResult = new WxPayResponse();
+        channelResult.setChannelState(ChannelState.WAITING);
+        String channelState = asyncResponse.getReturnCode();
+        if (WxPayConstants.SUCCESS.equals(channelState)) {
+            channelResult.setChannelState(ChannelState.CONFIRM_SUCCESS);
+        }else  if("CLOSED".equals(channelState)
+                || "REVOKED".equals(channelState)
+                || "PAYERROR".equals(channelState)){  //CLOSED—已关闭， REVOKED—已撤销, PAYERROR--支付失败
+            channelResult.setChannelState(ChannelState.CONFIRM_FAIL); //支付失败
+            channelResult.setErrCode(channelState);
+            channelResult.setErrMsg(asyncResponse.getReturnMsg());
+        }else
         //该订单已支付直接返回
         if (!asyncResponse.getResultCode().equals(WxPayConstants.SUCCESS)
                 && asyncResponse.getErrCode().equals("ORDERPAID")) {
-            return buildPayResponse(asyncResponse);
+            channelResult.setChannelState(ChannelState.CONFIRM_SUCCESS);
+        }else{
+            throw new RuntimeException("【微信支付异步通知】未知异常, returnCode = "+channelState+", returnMsg = " + asyncResponse.getReturnMsg());
         }
-
-        if (!asyncResponse.getResultCode().equals(WxPayConstants.SUCCESS)) {
-            throw new RuntimeException("【微信支付异步通知】发起支付, resultCode != SUCCESS, err_code = " + asyncResponse.getErrCode() + " err_code_des=" + asyncResponse.getErrCodeDes());
-        }
-
-        return buildPayResponse(asyncResponse);
+        return buildPayResponse(asyncResponse,channelResult);
     }
 
 
@@ -181,14 +189,14 @@ public class WxPayStrategy extends PayStrategy {
      * @param response
      * @return
      */
-    private PayResponse buildPayResponse(WxPayAsyncResponse response) {
-        WxPayResponse payResponse = new WxPayResponse();
+    private PayResponse buildPayResponse(WxPayAsyncResponse response,WxPayResponse payResponse) {
+
         payResponse.setReturnCode(response.getReturnCode());
         payResponse.setReturnMsg(response.getReturnMsg());
         payResponse.setResultCode(response.getResultCode());
         payResponse.setErrCode(response.getErrCode());
         payResponse.setErrCodeDes(response.getErrCodeDes());
-        payResponse.setPayType(PayType.WX);
+//        payResponse.setPayType(PayType.WX);
         payResponse.setOrderAmount(MoneyUtil.Fen2Yuan(response.getTotalFee()));
         payResponse.setOrderId(response.getOutTradeNo());
         payResponse.setOutTradeNo(response.getTransactionId());

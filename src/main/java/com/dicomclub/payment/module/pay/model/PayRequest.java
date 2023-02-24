@@ -1,6 +1,7 @@
 package com.dicomclub.payment.module.pay.model;
 
 import com.dicomclub.payment.module.pay.enums.PayChannel;
+import com.dicomclub.payment.module.pay.enums.PayDataType;
 import lombok.Data;
 
 import java.math.BigDecimal;
@@ -12,6 +13,9 @@ import java.math.BigDecimal;
 @Data
 public abstract  class PayRequest {
     private PayChannel payChannel;
+
+
+    private PayDataType payDataType;
 
     /**
      * 订单号.

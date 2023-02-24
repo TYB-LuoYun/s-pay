@@ -24,16 +24,23 @@ public class PayConfig {
 
 
 
+    /** 签名方式 **/
+    private String signType;
+
 
 
 
     public boolean isSandbox() {
         return sandbox;
     }
+    public boolean getSandbox() {
+        return sandbox;
+    }
 
     public void setSandbox(boolean sandbox) {
         this.sandbox = sandbox;
     }
+
 
     public String getNotifyUrl() {
         return notifyUrl;

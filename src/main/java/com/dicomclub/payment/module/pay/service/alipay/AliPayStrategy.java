@@ -4,7 +4,9 @@ import com.alipay.api.AlipayClient;
 import com.dicomclub.payment.module.pay.config.AliPayConfig;
 import com.dicomclub.payment.module.pay.config.PayConfig;
 import com.dicomclub.payment.module.pay.constants.AliPayConstants;
+import com.dicomclub.payment.module.pay.enums.ChannelState;
 import com.dicomclub.payment.module.pay.enums.PayChannel;
+import com.dicomclub.payment.module.pay.enums.PayDataType;
 import com.dicomclub.payment.module.pay.enums.PayType;
 import com.dicomclub.payment.module.pay.model.PayRequest;
 import com.dicomclub.payment.module.pay.model.PayResponse;
@@ -32,6 +34,7 @@ import org.springframework.stereotype.Component;
 import retrofit2.Retrofit;
 import retrofit2.converter.gson.GsonConverterFactory;
 
+import java.io.IOException;
 import java.io.UnsupportedEncodingException;
 import java.net.URLDecoder;
 import java.time.LocalDateTime;
@@ -77,7 +80,13 @@ public class AliPayStrategy extends PayStrategy {
         AliPayConfig aliPayConfig = (AliPayConfig) payConfig;
         AliPayRequest request = (AliPayRequest)payRequest;
 
-     
+
+
+
+
+
+
+
 
 
 //      接下来就是 PC 和 手机WAP支付
@@ -96,7 +105,7 @@ public class AliPayStrategy extends PayStrategy {
         requestParams.put("subject", String.valueOf(request.getOrderName()));
         requestParams.put("passback_params", request.getAttach());
         aliPayRequest.setAppId(aliPayConfig.getAppId());
-        aliPayRequest.setCharset("utf-8");
+        aliPayRequest.setCharset("UTF-8");
         aliPayRequest.setSignType(AliPayConstants.SIGN_TYPE_RSA2);
         aliPayRequest.setNotifyUrl(aliPayConfig.getNotifyUrl());
         //优先使用PayRequest.returnUrl
@@ -112,13 +121,17 @@ public class AliPayStrategy extends PayStrategy {
         Map<String, String> parameters = MapUtil.object2MapWithUnderline(aliPayRequest);
         Map<String, String> applicationParams = new HashMap<>();
         applicationParams.put("biz_content", aliPayRequest.getBizContent());
-        parameters.remove("biz_content");
+//        parameters.remove("biz_content");
         String baseUrl = WebUtil.getRequestUrl(parameters, aliPayConfig.isSandbox());
-//        String body = WebUtil.buildForm(baseUrl, applicationParams);
-
-        // pc 网站支付 只需返回body
         AliPayResponse response = new AliPayResponse();
-        response.setPayUrl(baseUrl);
+        if(request.getPayDataType()!=null&&request.getPayDataType() == PayDataType.FORM){
+            //      生成form ,暂时这个不使用，如果要用不同类型，建议在配置文件中添加返回类型配置，暂时不需要
+            parameters.remove("biz_content");
+            String body = WebUtil.buildForm(WebUtil.getRequestUrl(parameters, aliPayConfig.isSandbox()), applicationParams);
+            response.setFormContent(body);
+        }else{
+            response.setPayUrl(baseUrl);
+        }
         return response;
 
     }
@@ -148,11 +161,19 @@ public class AliPayStrategy extends PayStrategy {
         HashMap<String, String> params = MapUtil.form2MapWithCamelCase(notifyData);
         AliPayAsyncResponse response = MapUtil.mapToObject(params, AliPayAsyncResponse.class);
         String tradeStatus = response.getTradeStatus();
-        if (!tradeStatus.equals(AliPayConstants.TRADE_FINISHED) &&
-                !tradeStatus.equals(AliPayConstants.TRADE_SUCCESS)) {
-            throw new RuntimeException("【支付宝支付异步通知】发起支付, trade_status != SUCCESS | FINISHED");
+
+
+        AliPayResponse payResponse = new AliPayResponse();
+        payResponse.setChannelState(ChannelState.WAITING);
+        if ( tradeStatus.equals(AliPayConstants.TRADE_SUCCESS)||tradeStatus.equals(AliPayConstants.TRADE_FINISHED)) {
+            payResponse.setChannelState(ChannelState.CONFIRM_SUCCESS);
+        }else if(AliPayConstants.TRADE_CLOSED.equals(tradeStatus)){
+            payResponse.setErrCode(tradeStatus);
+            payResponse.setChannelState(ChannelState.CONFIRM_FAIL);
+        }else{
+            throw new RuntimeException("【支付宝支付异步通知】未知异常, returnCode = "+tradeStatus   );
         }
-        return buildPayResponse(response);
+        return buildPayResponse(response ,payResponse);
     }
 
 
@@ -192,9 +213,9 @@ public class AliPayStrategy extends PayStrategy {
             .build();
 
 
-    private PayResponse buildPayResponse(AliPayAsyncResponse response) {
-        AliPayResponse payResponse = new AliPayResponse();
-        payResponse.setPayType(PayType.ALIPAY);
+    private PayResponse buildPayResponse(AliPayAsyncResponse response,AliPayResponse payResponse) {
+
+//        payResponse.setPayType(PayType.ALIPAY);
         payResponse.setOrderAmount(Double.valueOf(response.getTotalAmount()));
         payResponse.setOrderId(response.getOutTradeNo());
         payResponse.setOutTradeNo(response.getTradeNo());
