@@ -28,7 +28,7 @@ public class WxPayResponse  extends PayResponse {
 
     private String prePayParams;
 
-    private URI payUri;
+
 
     /** 以下字段仅在微信h5支付返回. */
     private String appId;

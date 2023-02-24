@@ -1,6 +1,6 @@
 package com.dicomclub.payment.module.pay.service;
 
-import com.dicomclub.payment.exception.ServiceException;
+import com.dicomclub.payment.exception.PayException;
 import com.dicomclub.payment.module.pay.config.AliPayConfig;
 import com.dicomclub.payment.module.pay.config.PayConfig;
 import com.dicomclub.payment.module.pay.config.UnionPayConfig;
@@ -43,7 +43,7 @@ public class PayContext {
      */
     public PayResponse pay(PayRequest request , PayConfig payConfig) {
         if(request.getPayChannel() == null){
-            throw new ServiceException("未知的支付渠道");
+            throw new PayException("未知的支付渠道");
         }
         PayStrategy strategy = getPatStrategy(request.getPayChannel().getPayType() );
         return strategy.pay(request,payConfig);
@@ -61,7 +61,7 @@ public class PayContext {
         PayConfig payConfig = getDefaultPayConfig(request.getPayChannel().getPayType());
 
         if(payConfig == null){
-            throw new ServiceException("固定商户应用请全局配置支付环境参数");
+            throw new PayException("固定商户应用请全局配置支付环境参数");
         }
         return this.pay(request,payConfig);
     }
@@ -109,7 +109,7 @@ public class PayContext {
                 payConfig = SpringContextUtil.getBeanNoException(UnionPayConfig.class);
                 break;
             default:
-                throw new ServiceException("暂未实现该渠道对应的支付类型");
+                throw new PayException("暂未实现该渠道对应的支付类型");
         }
         return payConfig;
     }
@@ -132,7 +132,7 @@ public class PayContext {
                 strategy = unionPayStrategy;
                 break;
             default:
-                throw new ServiceException("暂未实现该渠道对应的支付类型");
+                throw new PayException("暂未实现该渠道对应的支付类型");
         }
         return strategy;
     }

@@ -4,7 +4,7 @@ package com.dicomclub.payment.util.httpRequest;
 import com.alibaba.fastjson.JSON;
 import com.alibaba.fastjson.JSONArray;
 import com.alibaba.fastjson.JSONObject;
-import com.dicomclub.payment.exception.ServiceException;
+import com.dicomclub.payment.exception.PayException;
 import org.apache.commons.lang3.StringUtils;
 import org.w3c.dom.Document;
 import org.w3c.dom.Node;
@@ -58,7 +58,7 @@ public class XML {
             return (JSONObject) inputStream2Map(in, null);
         }
         catch (IOException e) {
-            throw new ServiceException("IOException"+ e.getMessage());
+            throw new PayException("IOException"+ e.getMessage());
         }
 
 
@@ -107,7 +107,7 @@ public class XML {
             return (JSONObject) inputStream2Map(in, null);
         }
         catch (IOException e) {
-            throw new ServiceException("IOException"+ e.getMessage());
+            throw new PayException("IOException"+ e.getMessage());
         }
 
     }
@@ -129,7 +129,7 @@ public class XML {
             return inputStream2Bean(in, clazz);
         }
         catch (IOException e) {
-            throw new ServiceException("IOException"+e.getMessage());
+            throw new PayException("IOException"+e.getMessage());
         }
 
     }
@@ -238,7 +238,7 @@ public class XML {
             }
         }
         catch (ParserConfigurationException | SAXException e) {
-            throw new ServiceException("XML failure", "XML解析失败\n" + e.getMessage());
+            throw new PayException("XML failure", "XML解析失败\n" + e.getMessage());
         }
         finally {
             in.close();
@@ -272,7 +272,7 @@ public class XML {
             document = newDocument();
         }
         catch (ParserConfigurationException e) {
-            throw new ServiceException("ParserConfigurationException"+ e.getLocalizedMessage());
+            throw new PayException("ParserConfigurationException"+ e.getLocalizedMessage());
         }
         org.w3c.dom.Element root = document.createElement(rootElementName);
         document.appendChild(root);
@@ -302,7 +302,7 @@ public class XML {
             return output;
         }
         catch (TransformerException e) {
-            throw new ServiceException("XML failure"+"XML生成失败\n" + e.getMessage());
+            throw new PayException("XML failure"+"XML生成失败\n" + e.getMessage());
         }
 
 

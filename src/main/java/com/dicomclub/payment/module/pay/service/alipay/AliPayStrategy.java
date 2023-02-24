@@ -1,5 +1,6 @@
 package com.dicomclub.payment.module.pay.service.alipay;
 
+import com.alipay.api.AlipayClient;
 import com.dicomclub.payment.module.pay.config.AliPayConfig;
 import com.dicomclub.payment.module.pay.config.PayConfig;
 import com.dicomclub.payment.module.pay.constants.AliPayConstants;
@@ -73,10 +74,10 @@ public class AliPayStrategy extends PayStrategy {
         }else if (payRequest.getPayChannel() == PayChannel.ALIPAY_APP) {
             return alipayAppService.pay(payRequest,payConfig);
         }
-
         AliPayConfig aliPayConfig = (AliPayConfig) payConfig;
         AliPayRequest request = (AliPayRequest)payRequest;
 
+     
 
 
 //      接下来就是 PC 和 手机WAP支付
@@ -90,10 +91,10 @@ public class AliPayStrategy extends PayStrategy {
             requestParams.put("product_code", AliPayConstants.QUICK_WAP_PAY);
             aliPayRequest.setMethod(AliPayConstants.ALIPAY_TRADE_WAP_PAY);
         }
+        requestParams.put("qr_pay_mode", "2");//跳转模式
         requestParams.put("total_amount", String.valueOf(request.getOrderAmount()));
         requestParams.put("subject", String.valueOf(request.getOrderName()));
         requestParams.put("passback_params", request.getAttach());
-
         aliPayRequest.setAppId(aliPayConfig.getAppId());
         aliPayRequest.setCharset("utf-8");
         aliPayRequest.setSignType(AliPayConstants.SIGN_TYPE_RSA2);
@@ -104,6 +105,8 @@ public class AliPayStrategy extends PayStrategy {
         aliPayRequest.setVersion("1.0");
         // 剔除空格、制表符、换行
         aliPayRequest.setBizContent(JsonUtil.toJson(requestParams).replaceAll("\\s*", ""));
+        aliPayRequest.setAlipaySdk( "alipay-sdk-java-dynamicVersionNo");
+        aliPayRequest.setFormat("json");
         aliPayRequest.setSign(AliPaySignature.sign(MapUtil.object2MapWithUnderline(aliPayRequest), aliPayConfig.getPrivateKey()));
 
         Map<String, String> parameters = MapUtil.object2MapWithUnderline(aliPayRequest);
@@ -111,15 +114,15 @@ public class AliPayStrategy extends PayStrategy {
         applicationParams.put("biz_content", aliPayRequest.getBizContent());
         parameters.remove("biz_content");
         String baseUrl = WebUtil.getRequestUrl(parameters, aliPayConfig.isSandbox());
-        String body = WebUtil.buildForm(baseUrl, applicationParams);
+//        String body = WebUtil.buildForm(baseUrl, applicationParams);
 
         // pc 网站支付 只需返回body
         AliPayResponse response = new AliPayResponse();
-        response.setBody(body);
+        response.setPayUrl(baseUrl);
         return response;
 
-
     }
+
 
 
 

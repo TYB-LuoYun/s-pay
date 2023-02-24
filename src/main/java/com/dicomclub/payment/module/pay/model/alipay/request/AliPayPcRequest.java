@@ -49,4 +49,11 @@ public class AliPayPcRequest {
      * HTTP/HTTPS开头字符串
      */
     private String returnUrl;
+
+    private String alipaySdk;
+
+    private String format;
+
+
+
 }

@@ -1,6 +1,6 @@
 package com.dicomclub.payment.module.pay.model;
 
-import com.dicomclub.payment.exception.ServiceException;
+import com.dicomclub.payment.exception.PayException;
 import com.dicomclub.payment.module.pay.enums.PayChannel;
 import com.dicomclub.payment.module.pay.enums.PayType;
 import com.dicomclub.payment.module.pay.model.alipay.AliPayRequest;
@@ -45,10 +45,10 @@ public class AllPayRequest {
         }else if(payChannel.getPayType() ==  PayType.WX){
             this.payRequest = wxPayRequest;
         }else{
-            throw new ServiceException("暂不支持的支付渠道:"+this.channelCode);
+            throw new PayException("暂不支持的支付渠道:"+this.channelCode);
         }
         if(this.payRequest == null){
-            throw new ServiceException("支付渠道参数与渠道不对应，请检查");
+            throw new PayException("支付渠道参数与渠道不对应，请检查");
         }
         this.payChannel = payChannel;
     }

@@ -1,6 +1,6 @@
 package com.dicomclub.payment.module.pay.service.union;
 
-import com.dicomclub.payment.exception.ServiceException;
+import com.dicomclub.payment.exception.PayException;
 import com.dicomclub.payment.module.pay.config.PayConfig;
 import com.dicomclub.payment.module.pay.config.UnionPayConfig;
 import com.dicomclub.payment.module.pay.constants.UnionPayConstants;
@@ -236,7 +236,7 @@ public class UnionPayStrategy extends PayStrategy {
         parameters.put(UnionPayConstants.param_signature, signUtils.createSign(signStr, key, unionPayConfig.getInputCharset()));
         break;
       default:
-        throw new ServiceException("sign fail 未找到的签名类型");
+        throw new PayException("sign fail 未找到的签名类型");
     }
 
 
