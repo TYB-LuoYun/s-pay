@@ -8,10 +8,13 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.commons.lang3.StringUtils;
+import org.apache.http.Consts;
 import org.simpleframework.xml.Element;
 
 import java.io.IOException;
+import java.io.UnsupportedEncodingException;
 import java.lang.reflect.Field;
+import java.net.URLDecoder;
 import java.net.URLEncoder;
 import java.util.*;
 
@@ -210,6 +213,40 @@ public class MapUtil {
         }
         return map;
     }
+
+
+    /**
+     * 表单字符串转化成 hashMap
+     * @param orderinfo
+     * @return
+     */
+    public static HashMap<String, Object> form2MapObjectAndURLDecode( String orderinfo) {
+        String[] listinfo;
+        HashMap<String, Object> map = new HashMap<>();
+        listinfo = orderinfo.split("&");
+        for(String s : listinfo)
+        {
+            String[] list = s.split("=", 2);
+            if(list.length > 1)
+            {
+                String valueStr = list[1];
+                try {
+                    valueStr = URLDecoder.decode(list[1], "UTF-8");
+                } catch (UnsupportedEncodingException e) {
+                }
+                map.put(list[0], valueStr);
+
+            }
+        }
+        return map;
+    }
+
+    public static void main(String[] args){
+        String content ="accNo=%E9%99%84%E5%8A%A0%E4%BF%A1%E6%81%AF";
+        HashMap<String, Object> map = MapUtil.form2MapObjectAndURLDecode(content);
+        System.out.println(map);
+    }
+
 
     /**
      * 表单字符串转化成 hashMap，将具有下划线的key转换为小驼峰

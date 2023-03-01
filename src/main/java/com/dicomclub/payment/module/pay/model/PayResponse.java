@@ -2,7 +2,6 @@ package com.dicomclub.payment.module.pay.model;
 
 import com.dicomclub.payment.module.pay.enums.ChannelState;
 import com.dicomclub.payment.module.pay.enums.PayDataType;
-import com.dicomclub.payment.module.pay.enums.PayType;
 import lombok.Data;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.http.ResponseEntity;
@@ -15,12 +14,9 @@ import org.springframework.http.ResponseEntity;
 public abstract class PayResponse {
 
 
+
     private ChannelState channelState;
 
-    /**
-     * 支付返回的body体，html 可直接嵌入网页使用
-     */
-    private String body;
 
 
 
@@ -55,6 +51,11 @@ public abstract class PayResponse {
 
 
 //  结果
+    /**
+     * 支付返回的body体，html 可直接嵌入网页使用
+     */
+    private String body;
+
     /** 跳转地址 **/
     private String payUrl;
 
@@ -82,9 +83,13 @@ public abstract class PayResponse {
         return PayDataType.CODE_IMG_URL.getCode();
     }
 
-        if(StringUtils.isNotEmpty(formContent)){
+     if(StringUtils.isNotEmpty(formContent)){
         return PayDataType.FORM.getCode();
     }
+
+        if(StringUtils.isNotEmpty(body)){
+            return PayDataType.HTML.getCode();
+        }
 
         return PayDataType.PAY_URL.getCode();
     }
@@ -104,6 +109,10 @@ public abstract class PayResponse {
 
         if(StringUtils.isNotEmpty(formContent)){
             return formContent;
+        }
+
+        if(StringUtils.isNotEmpty(body)){
+            return body;
         }
 
         return "";

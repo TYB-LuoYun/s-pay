@@ -4,16 +4,18 @@ import com.alipay.api.AlipayClient;
 import com.dicomclub.payment.module.pay.config.AliPayConfig;
 import com.dicomclub.payment.module.pay.config.PayConfig;
 import com.dicomclub.payment.module.pay.constants.AliPayConstants;
-import com.dicomclub.payment.module.pay.enums.ChannelState;
-import com.dicomclub.payment.module.pay.enums.PayChannel;
-import com.dicomclub.payment.module.pay.enums.PayDataType;
-import com.dicomclub.payment.module.pay.enums.PayType;
+import com.dicomclub.payment.module.pay.enums.*;
+import com.dicomclub.payment.module.pay.model.OrderQueryRequest;
+import com.dicomclub.payment.module.pay.model.OrderQueryResponse;
 import com.dicomclub.payment.module.pay.model.PayRequest;
 import com.dicomclub.payment.module.pay.model.PayResponse;
+import com.dicomclub.payment.module.pay.model.alipay.AliPayApi;
 import com.dicomclub.payment.module.pay.model.alipay.AliPayRequest;
 import com.dicomclub.payment.module.pay.model.alipay.AliPayResponse;
+import com.dicomclub.payment.module.pay.model.alipay.request.AliPayOrderQueryRequest;
 import com.dicomclub.payment.module.pay.model.alipay.request.AliPayPcRequest;
 import com.dicomclub.payment.module.pay.model.alipay.response.AliPayAsyncResponse;
+import com.dicomclub.payment.module.pay.model.alipay.response.AliPayOrderQueryResponse;
 import com.dicomclub.payment.module.pay.service.PayStrategy;
 import com.dicomclub.payment.module.pay.service.alipay.channel.AlipayAppService;
 import com.dicomclub.payment.module.pay.service.alipay.channel.AlipayBarCodeService;
@@ -31,6 +33,8 @@ import okhttp3.logging.HttpLoggingInterceptor;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
+import retrofit2.Call;
+import retrofit2.Response;
 import retrofit2.Retrofit;
 import retrofit2.converter.gson.GsonConverterFactory;
 
@@ -79,13 +83,6 @@ public class AliPayStrategy extends PayStrategy {
         }
         AliPayConfig aliPayConfig = (AliPayConfig) payConfig;
         AliPayRequest request = (AliPayRequest)payRequest;
-
-
-
-
-
-
-
 
 
 
@@ -138,7 +135,6 @@ public class AliPayStrategy extends PayStrategy {
 
 
 
-
     /**
      * 异步通知
      *
@@ -165,21 +161,65 @@ public class AliPayStrategy extends PayStrategy {
 
         AliPayResponse payResponse = new AliPayResponse();
         payResponse.setChannelState(ChannelState.WAITING);
-        if ( tradeStatus.equals(AliPayConstants.TRADE_SUCCESS)||tradeStatus.equals(AliPayConstants.TRADE_FINISHED)) {
-            payResponse.setChannelState(ChannelState.CONFIRM_SUCCESS);
-        }else if(AliPayConstants.TRADE_CLOSED.equals(tradeStatus)){
+        payResponse.setChannelState(AlipayTradeStatusEnum.findByName(tradeStatus).getChannelState());
+        if(payResponse.getChannelState() == ChannelState.CONFIRM_FAIL){
             payResponse.setErrCode(tradeStatus);
-            payResponse.setChannelState(ChannelState.CONFIRM_FAIL);
-        }else{
-            throw new RuntimeException("【支付宝支付异步通知】未知异常, returnCode = "+tradeStatus   );
         }
-        return buildPayResponse(response ,payResponse);
+
+        if(payResponse.getChannelState() == ChannelState.CONFIRM_SUCCESS){
+            return buildPayResponse(response ,payResponse);
+        }
+//      其他情况非终态
+        return payResponse;
     }
 
 
     /**
-     * 退款
+     * 查询
      */
+    @Override
+    public OrderQueryResponse query(OrderQueryRequest request,PayConfig payConfig) {
+        AliPayConfig aliPayConfig = (AliPayConfig) payConfig;
+        AliPayOrderQueryRequest aliPayOrderQueryRequest = new AliPayOrderQueryRequest();
+        aliPayOrderQueryRequest.setAppId(aliPayConfig.getAppId());
+        aliPayOrderQueryRequest.setTimestamp(LocalDateTime.now().format(formatter));
+        AliPayOrderQueryRequest.BizContent bizContent = new AliPayOrderQueryRequest.BizContent();
+        bizContent.setOutTradeNo(request.getOrderNo());
+        bizContent.setTradeNo(request.getOutOrderNo());
+        aliPayOrderQueryRequest.setBizContent(JsonUtil.toJsonWithUnderscores(bizContent).replaceAll("\\s*", ""));
+        aliPayOrderQueryRequest.setSign(AliPaySignature.sign(MapUtil.object2MapWithUnderline(aliPayOrderQueryRequest), aliPayConfig.getPrivateKey()));
+
+        Call<AliPayOrderQueryResponse> call = null;
+        if (aliPayConfig.isSandbox()) {
+            call = devRetrofit.create(AliPayApi.class).orderQuery((MapUtil.object2MapWithUnderline(aliPayOrderQueryRequest)));
+        } else {
+            call = retrofit.create(AliPayApi.class).orderQuery((MapUtil.object2MapWithUnderline(aliPayOrderQueryRequest)));
+        }
+
+        Response<AliPayOrderQueryResponse> retrofitResponse = null;
+        try {
+            retrofitResponse = call.execute();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+        assert retrofitResponse != null;
+        if (!retrofitResponse.isSuccessful()) {
+            throw new RuntimeException("【查询支付宝订单】网络异常");
+        }
+        assert retrofitResponse.body() != null;
+        AliPayOrderQueryResponse.AlipayTradeQueryResponse response = retrofitResponse.body().getAlipayTradeQueryResponse();
+        if (!response.getCode().equals(AliPayConstants.RESPONSE_CODE_SUCCESS)) {
+            throw new RuntimeException("【查询支付宝订单】code=" + response.getCode() + ", returnMsg=" + response.getMsg() + String.format("|%s|%s", response.getSubCode(), response.getSubMsg()));
+        }
+
+        return OrderQueryResponse.builder()
+                .channelState(AlipayTradeStatusEnum.findByName(response.getTradeStatus()).getChannelState())
+                .outTradeNo(response.getTradeNo())
+                .orderNo(response.getOutTradeNo())
+                .resultMsg(response.getMsg())
+                .finishTime(response.getSendPayDate())
+                .build();
+    }
 
 
 

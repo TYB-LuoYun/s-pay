@@ -83,6 +83,34 @@ public class WebUtil {
         }
     }
 
+
+    public static String buildQueryParams(Map<String, Object> params, String charset) throws IOException {
+        if (params != null && !params.isEmpty()) {
+            StringBuilder query = new StringBuilder();
+            Set<Map.Entry<String, Object>> entries = params.entrySet();
+            boolean hasParam = false;
+            Iterator var5 = entries.iterator();
+
+            while(var5.hasNext()) {
+                Map.Entry<String, Object> entry = (Map.Entry)var5.next();
+                String name = entry.getKey();
+                Object value = entry.getValue();
+                if (StringUtil.areNotEmpty(new String[]{name, String.valueOf(value)})) {
+                    if (hasParam) {
+                        query.append("&");
+                    } else {
+                        hasParam = true;
+                    }
+                    query.append(name).append("=").append(URLEncoder.encode(String.valueOf(value), charset));
+                }
+            }
+            return query.toString();
+        } else {
+            return null;
+        }
+    }
+
+
     public static String getRequestUrl(Map<String,String> parameters,Boolean isSandbox)  {
         StringBuffer urlSb;
         if(isSandbox)
@@ -101,4 +129,6 @@ public class WebUtil {
         }
         return urlSb.toString();
     }
+
+
 }

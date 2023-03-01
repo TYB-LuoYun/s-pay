@@ -10,39 +10,10 @@ import java.io.InputStream;
  * @date 2023/2/17 0017 17:49
  */
 public class UnionPayConfig extends PayConfig {
-
-    /**
-     * 应用私钥，rsa_private pkcs8格式 生成签名时使用
-     */
-    private String keyPrivate;
-
     /**
      * 商户号
      */
-    private String merId;
-
-    /**
-     * 商户收款账号
-     */
-    private String seller;
-
-    private String version = "5.1.0";
-    /**
-     * 0：普通商户直连接入
-     * 1： 收单机构
-     * 2：平台类商户接入
-     */
-    private String accessType = "0";
-
-
-    /**
-     * 应用私钥证书
-     */
-    private Object keyPrivateCert;
-    /**
-     * 应用私钥证书，rsa_private pkcs8格式 生成签名时使用
-     */
-    private String keyPrivateCertPwd;
+    private String mchId;
 
     /**
      * 中级证书
@@ -54,29 +25,68 @@ public class UnionPayConfig extends PayConfig {
     private Object acpRootCert;
 
     /**
-     * 证书存储类型
+     * 应用私钥证书
+     */
+    private Object keyPrivateCert;
+
+
+    /**
+     * 应用私钥证书对应的密码，rsa_private pkcs8格式 生成签名时使用
+     */
+    private String keyPrivateCertPwd;
+
+
+    /**
+     * 证书存储类型（默认为文件地址）
      */
     private CertStoreType certStoreType;
 
 
+
+
+
+
+
+//    下面的可选===========================
+
+
+    /**
+     * 应用私钥(自动生成)
+     */
+    private String keyPrivate;
+
+    /**
+     * 商户收款账号
+     */
+    private String seller;
+
+    /**
+     * 签名为SM3用到，一般不会用到
+     */
+    private String keyPublic;
+
     /**
      * 字符类型
      */
-    private String inputCharset;
+    private String inputCharset = "UTF-8";
 
+
+
+
+    private String version = "5.1.0";
     /**
-     * 签名加密类型
+     * 0：普通商户直连接入
+     * 1： 收单机构
+     * 2：平台类商户接入
      */
-    private String signType;
+    private String accessType = "0";
 
 
     public String getSignType() {
-        return signType;
+        return super.getSignType();
     }
 
-    public void setSignType(String signType) {
-        this.signType = signType;
-    }
+ 
 
 
     /**
@@ -197,7 +207,7 @@ public class UnionPayConfig extends PayConfig {
      */
     @Deprecated
     public String getPartner() {
-        return merId;
+        return mchId;
     }
 
 
@@ -209,15 +219,15 @@ public class UnionPayConfig extends PayConfig {
      */
     @Deprecated
     public void setPartner(String partner) {
-        this.merId = partner;
+        this.mchId = partner;
     }
 
     public String getPid() {
-        return merId;
+        return mchId;
     }
 
     public void setPid(String pid) {
-        this.merId = pid;
+        this.mchId = pid;
     }
 
     public String getSeller() {
@@ -228,12 +238,12 @@ public class UnionPayConfig extends PayConfig {
         this.seller = seller;
     }
 
-    public String getMerId() {
-        return merId;
+    public String getMchId() {
+        return mchId;
     }
 
-    public void setMerId(String merId) {
-        this.merId = merId;
+    public void setMchId(String mchId) {
+        this.mchId = mchId;
     }
 
     public String getVersion() {
@@ -271,5 +281,9 @@ public class UnionPayConfig extends PayConfig {
 
     public String getInputCharset() {
         return this.inputCharset;
+    }
+
+    public String getKeyPublic() {
+        return keyPublic;
     }
 }

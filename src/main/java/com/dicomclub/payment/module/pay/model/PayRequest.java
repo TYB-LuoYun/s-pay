@@ -42,4 +42,6 @@ public abstract  class PayRequest {
      * 附加内容，发起支付时传入
      */
     private String attach;
+
+
 }

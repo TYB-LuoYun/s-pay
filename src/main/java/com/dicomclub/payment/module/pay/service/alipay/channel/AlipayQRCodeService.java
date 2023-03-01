@@ -87,9 +87,9 @@ public class AlipayQRCodeService extends AliPayStrategy {
             payResponse.setCodeUrl(qrCode);
         }else{
             //          生成图片
-            ByteArrayOutputStream stream = QRCode.from(qrCode).to(ImageType.PNG).stream();
+            ByteArrayOutputStream stream = QRCode.from(qrCode).to(ImageType.PNG).withSize(350, 350).stream();
             String base64String = Base64.getEncoder().encodeToString(stream.toByteArray());
-            payResponse.setCodeUrl("data:image/png;base64," +base64String);
+            payResponse.setCodeImgUrl("data:image/png;base64," +base64String);
         }
 
         return payResponse;

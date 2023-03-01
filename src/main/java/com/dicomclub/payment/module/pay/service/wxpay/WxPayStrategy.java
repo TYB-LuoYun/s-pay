@@ -3,15 +3,17 @@ package com.dicomclub.payment.module.pay.service.wxpay;
 import com.dicomclub.payment.module.pay.config.PayConfig;
 import com.dicomclub.payment.module.pay.config.WxPayConfig;
 import com.dicomclub.payment.module.pay.constants.WxPayConstants;
-import com.dicomclub.payment.module.pay.enums.ChannelState;
-import com.dicomclub.payment.module.pay.enums.PayChannel;
-import com.dicomclub.payment.module.pay.enums.PayType;
+import com.dicomclub.payment.module.pay.enums.*;
+import com.dicomclub.payment.module.pay.model.OrderQueryRequest;
+import com.dicomclub.payment.module.pay.model.OrderQueryResponse;
 import com.dicomclub.payment.module.pay.model.PayRequest;
 import com.dicomclub.payment.module.pay.model.PayResponse;
 import com.dicomclub.payment.module.pay.model.wxpay.WxPayApi;
 import com.dicomclub.payment.module.pay.model.wxpay.WxPayRequest;
 import com.dicomclub.payment.module.pay.model.wxpay.WxPayResponse;
+import com.dicomclub.payment.module.pay.model.wxpay.request.WxOrderQueryRequest;
 import com.dicomclub.payment.module.pay.model.wxpay.request.WxPayUnifiedorderRequest;
+import com.dicomclub.payment.module.pay.model.wxpay.response.WxOrderQueryResponse;
 import com.dicomclub.payment.module.pay.model.wxpay.response.WxPayAsyncResponse;
 import com.dicomclub.payment.module.pay.model.wxpay.response.WxPaySyncResponse;
 import com.dicomclub.payment.module.pay.service.PayStrategy;
@@ -132,7 +134,6 @@ public class WxPayStrategy extends PayStrategy {
             log.error("【微信支付异步通知】签名验证失败, response={}", notifyData);
             throw new RuntimeException("【微信支付异步通知】签名验证失败");
         }
-
         //xml解析为对象
         WxPayAsyncResponse asyncResponse = (WxPayAsyncResponse) XmlUtil.toObject(notifyData, WxPayAsyncResponse.class);
 
@@ -140,27 +141,75 @@ public class WxPayStrategy extends PayStrategy {
         WxPayResponse channelResult = new WxPayResponse();
         channelResult.setChannelState(ChannelState.WAITING);
         String channelState = asyncResponse.getReturnCode();
-        if (WxPayConstants.SUCCESS.equals(channelState)) {
-            channelResult.setChannelState(ChannelState.CONFIRM_SUCCESS);
-        }else  if("CLOSED".equals(channelState)
-                || "REVOKED".equals(channelState)
-                || "PAYERROR".equals(channelState)){  //CLOSED—已关闭， REVOKED—已撤销, PAYERROR--支付失败
-            channelResult.setChannelState(ChannelState.CONFIRM_FAIL); //支付失败
+        channelResult.setChannelState(WxTradeStatusEnum.findByName(channelState).getChannelState());
+        if(channelResult.getChannelState() == ChannelState.CONFIRM_FAIL){
             channelResult.setErrCode(channelState);
             channelResult.setErrMsg(asyncResponse.getReturnMsg());
-        }else
-        //该订单已支付直接返回
-        if (!asyncResponse.getResultCode().equals(WxPayConstants.SUCCESS)
-                && asyncResponse.getErrCode().equals("ORDERPAID")) {
-            channelResult.setChannelState(ChannelState.CONFIRM_SUCCESS);
-        }else{
-            throw new RuntimeException("【微信支付异步通知】未知异常, returnCode = "+channelState+", returnMsg = " + asyncResponse.getReturnMsg());
         }
-        return buildPayResponse(asyncResponse,channelResult);
+//       其他情况都非终态
+        if(channelResult.getChannelState() == ChannelState.CONFIRM_SUCCESS){
+            return buildPayResponse(asyncResponse,channelResult);
+        }
+//      其他情况非终态
+        return channelResult;
     }
 
+    /**
+     * 订单结果查询
+     *
+     * @param request
+     * @param payConfig
+     */
+    @Override
+    public OrderQueryResponse query(OrderQueryRequest request, PayConfig payConfig) {
+        WxPayConfig wxPayConfig = (WxPayConfig )payConfig;
+        WxOrderQueryRequest wxRequest = new WxOrderQueryRequest();
+        wxRequest.setOutTradeNo(request.getOrderNo());
+        wxRequest.setTransactionId(request.getOutOrderNo());
 
+        wxRequest.setAppid(wxPayConfig.getAppId());
+        wxRequest.setMchId(wxPayConfig.getMchId());
+        wxRequest.setNonceStr(RandomUtil.getRandomStr());
+        wxRequest.setSign(WxPaySignature.sign(MapUtil.buildMap(wxRequest), wxPayConfig.getMchKey()));
+        RequestBody body = RequestBody.create(MediaType.parse("application/xml; charset=utf-8"), XmlUtil.toString(wxRequest));
 
+        WxPayApi api = null;
+        if (wxPayConfig.isSandbox()) {
+            api = devRetrofit.create(WxPayApi.class);
+        } else {
+            api = retrofit.create(WxPayApi.class);
+        }
+        Call<WxOrderQueryResponse> call = api.orderquery(body);
+        Response<WxOrderQueryResponse> retrofitResponse = null;
+        try {
+            retrofitResponse = call.execute();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+        assert retrofitResponse != null;
+        if (!retrofitResponse.isSuccessful()) {
+            throw new RuntimeException("【微信订单查询】网络异常");
+        }
+        WxOrderQueryResponse response = retrofitResponse.body();
+
+        assert response != null;
+        if (!response.getReturnCode().equals(WxPayConstants.SUCCESS)) {
+            throw new RuntimeException("【微信订单查询】returnCode != SUCCESS, returnMsg = " + response.getReturnMsg());
+        }
+        if (!response.getResultCode().equals(WxPayConstants.SUCCESS)) {
+            throw new RuntimeException("【微信订单查询】resultCode != SUCCESS, err_code = " + response.getErrCode() + ", err_code_des=" + response.getErrCodeDes());
+        }
+
+        return OrderQueryResponse.builder()
+                .channelState(WxTradeStatusEnum.findByName(response.getTradeState()).getChannelState())
+                .resultMsg(response.getTradeStateDesc())
+                .outTradeNo(response.getTransactionId())
+                .orderNo(response.getOutTradeNo())
+                .attach(response.getAttach())
+                //yyyyMMddHHmmss -> yyyy-MM-dd HH:mm:ss
+                .finishTime(StringUtils.isEmpty(response.getTimeEnd()) ? "" : response.getTimeEnd().replaceAll("(\\d{4})(\\d{2})(\\d{2})(\\d{2})(\\d{2})(\\d{2})", "$1-$2-$3 $4:$5:$6"))
+                .build();
+    }
 
 
     protected final Retrofit retrofit = new Retrofit.Builder()

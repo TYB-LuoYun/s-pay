@@ -1,6 +1,8 @@
 package com.dicomclub.payment.module.pay.service;
 
 import com.dicomclub.payment.module.pay.config.PayConfig;
+import com.dicomclub.payment.module.pay.model.OrderQueryRequest;
+import com.dicomclub.payment.module.pay.model.OrderQueryResponse;
 import com.dicomclub.payment.module.pay.model.PayRequest;
 import com.dicomclub.payment.module.pay.model.PayResponse;
 
@@ -22,6 +24,12 @@ public abstract class PayStrategy {
     * @return
     */
    public abstract PayResponse asyncNotify(String notifyData  ,PayConfig payConfig);
+
+
+   /**
+    * 订单结果查询
+    */
+   public abstract OrderQueryResponse query(OrderQueryRequest request, PayConfig payConfig);
 
 
 }

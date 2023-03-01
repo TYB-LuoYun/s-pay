@@ -1,13 +1,13 @@
 package com.dicomclub.payment.module.pay.enums;
 
 import lombok.AllArgsConstructor;
-import lombok.Getter;
+import lombok.Data;
+import org.omg.CORBA.UNKNOWN;
 
 /**
  * @author ftm
- * @date 2023/2/24 0024 17:07
+ * @date 2023/2/28 0028 9:08
  */
-@Getter
 @AllArgsConstructor
 public enum ChannelState {
     CONFIRM_SUCCESS, //接口正确返回： 业务状态已经明确成功

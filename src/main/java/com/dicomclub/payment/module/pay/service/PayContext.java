@@ -6,6 +6,8 @@ import com.dicomclub.payment.module.pay.config.PayConfig;
 import com.dicomclub.payment.module.pay.config.UnionPayConfig;
 import com.dicomclub.payment.module.pay.config.WxPayConfig;
 import com.dicomclub.payment.module.pay.enums.PayType;
+import com.dicomclub.payment.module.pay.model.OrderQueryRequest;
+import com.dicomclub.payment.module.pay.model.OrderQueryResponse;
 import com.dicomclub.payment.module.pay.model.PayRequest;
 import com.dicomclub.payment.module.pay.model.PayResponse;
 import com.dicomclub.payment.module.pay.service.alipay.AliPayStrategy;
@@ -109,10 +111,46 @@ public class PayContext {
             }
             PayStrategy payStrategy = getPatStrategy(PayType.ALIPAY);
             return payStrategy.asyncNotify(notifyData,payConfig);
+        }else if(PayType.UNION == payType){
+            if(payConfig == null){
+                payConfig = getDefaultPayConfig(PayType.UNION);
+            }
+            PayStrategy payStrategy = getPatStrategy(PayType.UNION);
+            return payStrategy.asyncNotify(notifyData,payConfig);
         }else{
             return null;
         }
 
+    }
+
+
+
+    public OrderQueryResponse query(OrderQueryRequest request, PayConfig payConfig){
+        PayType payType = request.getPayType();
+        if(request.getPayType() == null){
+            throw new PayException("未知的支付方式");
+        }
+        PayStrategy payStrategy = null;
+        if (PayType.WX == payType) {
+//          微信
+            if(payConfig == null){
+                payConfig = getDefaultPayConfig(PayType.WX);
+            }
+            payStrategy = getPatStrategy(PayType.WX);
+        } else if(PayType.ALIPAY == payType){
+            if(payConfig == null){
+                payConfig = getDefaultPayConfig(PayType.ALIPAY);
+            }
+            payStrategy = getPatStrategy(PayType.ALIPAY);
+        }else if(PayType.UNION == payType){
+            if(payConfig == null){
+                payConfig = getDefaultPayConfig(PayType.UNION);
+            }
+            payStrategy = getPatStrategy(PayType.UNION);
+        }else{
+            throw new PayException("暂不支持该支付方式");
+        }
+        return payStrategy.query(request,payConfig);
     }
 
 
