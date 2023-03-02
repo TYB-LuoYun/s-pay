@@ -223,10 +223,11 @@ public class UnionPayStrategy extends PayStrategy {
     if (UnionPayConstants.OK_RESP_CODE.equals(dataMap.get(UnionPayConstants.param_respCode))) {
       //这里进行成功的处理
       payResponse.setChannelState(ChannelState.CONFIRM_SUCCESS);
-    }else{
-      payResponse.setChannelState(ChannelState.CONFIRM_FAIL);
-      payResponse.setErrCode((String)dataMap.get(UnionPayConstants.param_respCode));
-      payResponse.setErrMsg((String)dataMap.get(UnionPayConstants.param_respMsg));
+    }
+    else{
+//      payResponse.setChannelState(ChannelState.CONFIRM_FAIL);//可能是支付失败，用户可能重新支付，所以这里不能确认
+        payResponse.setErrCode((String)dataMap.get(UnionPayConstants.param_respCode));
+        payResponse.setErrMsg((String)dataMap.get(UnionPayConstants.param_respMsg));
     }
 
     if(payResponse.getChannelState() == ChannelState.CONFIRM_SUCCESS){
@@ -263,17 +264,15 @@ public class UnionPayStrategy extends PayStrategy {
           if ((UnionPayConstants.OK_RESP_CODE).equals(origRespCode)) {
               //交易成功，更新商户订单状态
               channelState =ChannelState.CONFIRM_SUCCESS;
-          }else{
-              channelState =ChannelState.CONFIRM_FAIL;
           }
       }else{
-          throw  new PayException(response.getString(UnionPayConstants.param_respCode), response.getString(UnionPayConstants.param_respMsg)+ response.toJSONString());
+          throw  new PayException(response.getString(UnionPayConstants.param_respCode), response.getString(UnionPayConstants.param_respMsg));
       }
       OrderQueryResponse build = OrderQueryResponse.builder()
               .channelState(channelState)
               .outTradeNo(response.getString(UnionPayConstants.param_queryId))
               .orderNo(response.getString(UnionPayConstants.param_orderId))
-              .resultMsg(response.getString(UnionPayConstants.param_respMsg))
+              .resultMsg(response.getString(UnionPayConstants.param_origRespMsg))
               .finishTime(response.getString(UnionPayConstants.param_txnTime))
               .build();
       return build;
