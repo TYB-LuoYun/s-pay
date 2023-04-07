@@ -65,10 +65,7 @@ public class UnionPayConfig extends PayConfig {
      */
     private String keyPublic;
 
-    /**
-     * 字符类型
-     */
-    private String inputCharset = "UTF-8";
+
 
 
 
@@ -275,13 +272,7 @@ public class UnionPayConfig extends PayConfig {
         this.certStoreType = certStoreType;
     }
 
-    public void setInputCharset(String inpustCharset) {
-        this.inputCharset = inpustCharset;
-    }
 
-    public String getInputCharset() {
-        return this.inputCharset;
-    }
 
     public String getKeyPublic() {
         return keyPublic;

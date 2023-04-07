@@ -48,7 +48,9 @@ public class HttpClientUtil {
 
 
 	public static String doGet(String url, Map<String, Object> map, String charset, Header[] headers) {
-		url = url+ "?" + mapToUrlStr(map);
+		if(map!=null&&map.size()>0){
+			url = url+ "?" + mapToUrlStr(map);
+		}
 		logeer .info("*****url:  "+url);
 		String result = "";
 		try {

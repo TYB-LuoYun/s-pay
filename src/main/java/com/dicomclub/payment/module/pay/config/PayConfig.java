@@ -29,6 +29,13 @@ public class PayConfig {
 
 
 
+    /**
+     * 字符类型
+     */
+    private String inputCharset = "UTF-8";
+
+
+
 
     public boolean isSandbox() {
         return sandbox;

@@ -1,5 +1,8 @@
 package com.dicomclub.payment.module.pay.service.union.common;
 
+import com.dicomclub.payment.module.pay.model.AssistOrder;
+import com.dicomclub.payment.module.pay.model.PayRequest;
+import com.dicomclub.payment.module.pay.model.RefundRequest;
 import org.apache.commons.lang3.StringUtils;
 
 import java.util.Date;
@@ -21,14 +24,19 @@ public final class OrderParaStructure {
         return parameters;
     }
 
-//    public static Map<String, Object> loadParameters(Map<String, Object> parameters, String key, Order order) {
-//        Object attr = order.getAttr(key);
-//        if (null != attr && !"".equals(attr)) {
-//            order.getAttrs().remove(key);
-//            parameters.put(key, attr);
-//        }
-//        return parameters;
-//    }
+
+
+
+    public static Map<String, Object> loadParameters(Map<String, Object> parameters, String key, AssistOrder order) {
+        Object attr = order.getAttr(key);
+        if (null != attr && !"".equals(attr)) {
+            order.getAttrs().remove(key);
+            parameters.put(key, attr);
+        }
+        return parameters;
+    }
+
+
 
 //    public static Map<String, Object> loadDateParameters(Map<String, Object> parameters, String key, Order order, String datePattern) {
 //        return OrderParaStructure.loadParameters(parameters, key, DateUtils.formatDate((Date) order.getAttr(key), datePattern));

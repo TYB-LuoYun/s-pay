@@ -1,4 +1,4 @@
-package com.dicomclub.payment.module.pay.service.wxpay.channel;
+package com.dicomclub.payment.module.pay.service.wxpay.v2.channel;
 
 import com.dicomclub.payment.module.pay.config.PayConfig;
 import com.dicomclub.payment.module.pay.config.WxPayConfig;
@@ -8,8 +8,8 @@ import com.dicomclub.payment.module.pay.model.wxpay.WxPayApi;
 import com.dicomclub.payment.module.pay.model.wxpay.WxPayRequest;
 import com.dicomclub.payment.module.pay.model.wxpay.request.WxPayUnifiedorderRequest;
 import com.dicomclub.payment.module.pay.model.wxpay.response.WxPaySyncResponse;
-import com.dicomclub.payment.module.pay.service.wxpay.WxPayStrategy;
-import com.dicomclub.payment.module.pay.service.wxpay.common.WxPaySignature;
+import com.dicomclub.payment.module.pay.service.wxpay.WxV2PayStrategy;
+import com.dicomclub.payment.module.pay.service.wxpay.v2.common.WxPaySignature;
 import com.dicomclub.payment.util.MapUtil;
 import com.dicomclub.payment.util.MoneyUtil;
 import com.dicomclub.payment.util.RandomUtil;
@@ -28,7 +28,7 @@ import java.io.IOException;
  * @date 2023/2/17 0017 16:30
  */
 @Component
-public class WxPayMicroService extends WxPayStrategy {
+public class WxV2PayMicroService extends WxV2PayStrategy {
 
 
     /**

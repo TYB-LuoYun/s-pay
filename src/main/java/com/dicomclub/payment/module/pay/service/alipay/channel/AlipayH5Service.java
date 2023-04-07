@@ -82,7 +82,7 @@ public class AlipayH5Service extends AliPayStrategy {
 
         AliPayResponse payResponse = new AliPayResponse();
         payResponse.setOutTradeNo(response.getTradeNo());
-        payResponse.setOrderId(response.getOutTradeNo());
+        payResponse.setOrderNo(response.getOutTradeNo());
         return payResponse;
     }
 

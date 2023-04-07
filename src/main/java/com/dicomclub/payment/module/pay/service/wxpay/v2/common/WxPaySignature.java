@@ -1,4 +1,4 @@
-package com.dicomclub.payment.module.pay.service.wxpay.common;
+package com.dicomclub.payment.module.pay.service.wxpay.v2.common;
 
 import org.apache.commons.codec.digest.DigestUtils;
 import org.apache.commons.lang3.StringUtils;

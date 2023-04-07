@@ -2,6 +2,7 @@ package com.dicomclub.payment.module.pay.service.union;
 
 import com.alibaba.fastjson.JSONObject;
 import com.dicomclub.payment.exception.PayException;
+import com.dicomclub.payment.module.pay.common.ChannelStateRes;
 import com.dicomclub.payment.module.pay.config.PayConfig;
 import com.dicomclub.payment.module.pay.config.UnionPayConfig;
 import com.dicomclub.payment.module.pay.constants.AliPayConstants;
@@ -9,10 +10,7 @@ import com.dicomclub.payment.module.pay.constants.UnionPayConstants;
 import com.dicomclub.payment.module.pay.enums.ChannelState;
 import com.dicomclub.payment.module.pay.enums.PayChannel;
 import com.dicomclub.payment.module.pay.enums.PayDataType;
-import com.dicomclub.payment.module.pay.model.OrderQueryRequest;
-import com.dicomclub.payment.module.pay.model.OrderQueryResponse;
-import com.dicomclub.payment.module.pay.model.PayRequest;
-import com.dicomclub.payment.module.pay.model.PayResponse;
+import com.dicomclub.payment.module.pay.model.*;
 import com.dicomclub.payment.module.pay.model.union.UnionPayRequest;
 import com.dicomclub.payment.module.pay.model.union.UnionPayResponse;
 import com.dicomclub.payment.module.pay.service.PayStrategy;
@@ -34,8 +32,10 @@ import com.dicomclub.payment.util.httpRequest.UriVariables;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.Primary;
 import org.springframework.stereotype.Component;
 
+import javax.servlet.http.HttpServletRequest;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -43,6 +43,7 @@ import java.security.GeneralSecurityException;
 import java.security.cert.*;
 import java.sql.Timestamp;
 import java.util.*;
+import java.util.stream.Collectors;
 
 /**
  * @author ftm
@@ -50,11 +51,11 @@ import java.util.*;
  */
 @Slf4j
 @Component
+@Primary
 public class UnionPayStrategy extends PayStrategy {
 
 
   private HttpRequestTemplate requestTemplate = null;
-
 
   /**
    * 测试域名
@@ -200,11 +201,17 @@ public class UnionPayStrategy extends PayStrategy {
   /**
    * 异步通知
    *
-   * @param notifyData
+   * @param
    * @return
    */
   @Override
-  public PayResponse asyncNotify(String notifyData,PayConfig payConfig) {
+  public PayResponse asyncNotify(HttpServletRequest request, PayConfig payConfig) {
+    String notifyData = null;
+    try {
+      notifyData = request.getReader().lines().collect(Collectors.joining());
+    } catch (IOException e) {
+      throw new PayException(e.getMessage());
+    }
 //  处理字符串参数
     HashMap<String, Object> dataMap = MapUtil.form2MapObjectAndURLDecode(notifyData);
 //  验签
@@ -226,8 +233,8 @@ public class UnionPayStrategy extends PayStrategy {
     }
     else{
 //      payResponse.setChannelState(ChannelState.CONFIRM_FAIL);//可能是支付失败，用户可能重新支付，所以这里不能确认
-        payResponse.setErrCode((String)dataMap.get(UnionPayConstants.param_respCode));
-        payResponse.setErrMsg((String)dataMap.get(UnionPayConstants.param_respMsg));
+        payResponse.setCode((String)dataMap.get(UnionPayConstants.param_respCode));
+        payResponse.setMsg((String)dataMap.get(UnionPayConstants.param_respMsg));
     }
 
     if(payResponse.getChannelState() == ChannelState.CONFIRM_SUCCESS){
@@ -238,6 +245,19 @@ public class UnionPayStrategy extends PayStrategy {
 
   }
 
+  /**
+   * 异步通知-退款
+   * 与支付结果不同的是，退款结果可能会受到更多的影响因素，比如退款金额、退款原因、退款渠道等，因此退款处理的时间可能会比支付处理更长。通过异步回调接口，商户可以及时获取退款结果，以便及时处理相关业务。
+   *
+   * @param request
+   * @param payConfig
+   * @return
+   */
+  @Override
+  public RefundResponse asyncNotifyRefund(HttpServletRequest request, PayConfig payConfig) {
+    return null;
+  }
+
 
   /**
    * 订单结果查询
@@ -246,7 +266,7 @@ public class UnionPayStrategy extends PayStrategy {
    * @param payConfig
    */
   @Override
-  public OrderQueryResponse query(OrderQueryRequest request, PayConfig payConfig) {
+  public PayResponse query(OrderQueryRequest request, PayConfig payConfig) {
       UnionPayConfig unionPayConfig = (UnionPayConfig)payConfig;
       Map<String, Object> params = this.getCommonParam(unionPayConfig);
       UnionTransactionType.QUERY.convertMap(params);
@@ -268,20 +288,51 @@ public class UnionPayStrategy extends PayStrategy {
       }else{
           throw  new PayException(response.getString(UnionPayConstants.param_respCode), response.getString(UnionPayConstants.param_respMsg));
       }
-      OrderQueryResponse build = OrderQueryResponse.builder()
-              .channelState(channelState)
-              .outTradeNo(response.getString(UnionPayConstants.param_queryId))
-              .orderNo(response.getString(UnionPayConstants.param_orderId))
-              .resultMsg(response.getString(UnionPayConstants.param_origRespMsg))
-              .finishTime(response.getString(UnionPayConstants.param_txnTime))
-              .build();
-      return build;
+    UnionPayResponse unionPayResponse = new UnionPayResponse();
+    unionPayResponse.setChannelState(channelState);
+    unionPayResponse.setOutTradeNo(response.getString(UnionPayConstants.param_queryId));
+    unionPayResponse.setOrderNo(response.getString(UnionPayConstants.param_orderId));
+    unionPayResponse.setMsg(response.getString(UnionPayConstants.param_origRespMsg));
+    unionPayResponse.setFinishTime(response.getString(UnionPayConstants.param_txnTime));
+
+      return unionPayResponse;
+  }
+
+  /**
+   * 退款
+   *
+   * @param request
+   * @param payConfig
+   */
+  @Override
+  public RefundResponse refund(RefundRequest request, PayConfig payConfig) {
+    return null;
+  }
+
+  /**
+   * 退款查询
+   *
+   * @param payConfig
+   */
+  public RefundResponse refundQuery(RefundQueryRequest refundQueryRequest, PayConfig payConfig) {
+    String refundNo = refundQueryRequest.getRefundNo();
+    return null;
+  }
+  /**
+   * 转账
+   *
+   * @param order
+   * @param payConfig
+   */
+  @Override
+  public TransferResponse transfer(TransferOrder order, PayConfig payConfig) {
+    return null;
   }
 
 
-    private PayResponse buildPayResponse(HashMap<String, Object> dataMap, UnionPayResponse payResponse) {
+  private PayResponse buildPayResponse(HashMap<String, Object> dataMap, UnionPayResponse payResponse) {
         payResponse.setOrderAmount(MoneyUtil.Fen2Yuan(Integer.valueOf((String)dataMap.get(UnionPayConstants.param_settleAmt))));
-        payResponse.setOrderId((String)dataMap.get(UnionPayConstants.param_orderId));
+        payResponse.setOrderNo((String)dataMap.get(UnionPayConstants.param_orderId));
 //    payResponse.setOutTradeNo(response.getTradeNo());
         payResponse.setAttach((String)dataMap.get(UnionPayConstants.param_reqReserved));
         return payResponse;

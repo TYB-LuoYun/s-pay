@@ -81,7 +81,7 @@ public class AlipayQRCodeService extends AliPayStrategy {
 
         AliPayResponse payResponse = new AliPayResponse();
         payResponse.setOutTradeNo(response.getTradeNo());
-        payResponse.setOrderId(response.getOutTradeNo());
+        payResponse.setOrderNo(response.getOutTradeNo());
         String qrCode = response.getQrCode();
         if(request.getPayDataType() != null && request.getPayDataType() == PayDataType.CODE_URL){
             payResponse.setCodeUrl(qrCode);

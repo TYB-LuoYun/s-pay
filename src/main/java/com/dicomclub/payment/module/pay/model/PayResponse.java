@@ -2,28 +2,30 @@ package com.dicomclub.payment.module.pay.model;
 
 import com.dicomclub.payment.module.pay.enums.ChannelState;
 import com.dicomclub.payment.module.pay.enums.PayDataType;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
 import lombok.Data;
+import lombok.NoArgsConstructor;
+import lombok.experimental.Accessors;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.http.ResponseEntity;
+
+import java.util.Map;
 
 /**
  * @author ftm
  * @date 2023/2/15 0015 11:39
  */
 @Data
-public abstract class PayResponse {
-
+public abstract   class PayResponse   {
 
 
     private ChannelState channelState;
 
-
-
-
     /**
      * 订单ID
      */
-    private String orderId;
+    private String orderNo;
 
     /**
      * 第三方支付的流水号
@@ -43,11 +45,15 @@ public abstract class PayResponse {
 
 
 
-    private String errCode;
+    private String code;
 
 
-    private String errMsg;
+    private String msg;
 
+    /**
+     * 支付完成时间
+     */
+    private String finishTime;
 
 
 //  结果
@@ -68,6 +74,10 @@ public abstract class PayResponse {
     /** 表单内容 **/
     private String formContent;
 
+    /**
+     * 返回的数据对
+     */
+    private Map<String,Object> dataMap;
 
 
     public String buildPayDataType(){
@@ -85,16 +95,20 @@ public abstract class PayResponse {
 
      if(StringUtils.isNotEmpty(formContent)){
         return PayDataType.FORM.getCode();
-    }
+     }
 
         if(StringUtils.isNotEmpty(body)){
             return PayDataType.HTML.getCode();
         }
 
+
+        if(dataMap!=null){
+            return PayDataType.DATA_MAP.getCode();
+        }
         return PayDataType.PAY_URL.getCode();
     }
 
-    public String buildPayData(){
+    public Object buildPayData(){
         if(StringUtils.isNotEmpty(payUrl)){
             return payUrl;
         }
@@ -115,9 +129,14 @@ public abstract class PayResponse {
             return body;
         }
 
+        if(dataMap != null){
+            return dataMap;
+        }
+
         return "";
     }
 
+    public abstract  ResponseEntity buildNotifyedSuccessResponse();
 
-    abstract public ResponseEntity buildPaySuccessResponse();
+
 }

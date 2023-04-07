@@ -1,13 +1,12 @@
 package com.dicomclub.payment.module.pay.service.wxpay;
 
+import com.alibaba.fastjson2.JSON;
+import com.dicomclub.payment.exception.PayException;
 import com.dicomclub.payment.module.pay.config.PayConfig;
 import com.dicomclub.payment.module.pay.config.WxPayConfig;
 import com.dicomclub.payment.module.pay.constants.WxPayConstants;
 import com.dicomclub.payment.module.pay.enums.*;
-import com.dicomclub.payment.module.pay.model.OrderQueryRequest;
-import com.dicomclub.payment.module.pay.model.OrderQueryResponse;
-import com.dicomclub.payment.module.pay.model.PayRequest;
-import com.dicomclub.payment.module.pay.model.PayResponse;
+import com.dicomclub.payment.module.pay.model.*;
 import com.dicomclub.payment.module.pay.model.wxpay.WxPayApi;
 import com.dicomclub.payment.module.pay.model.wxpay.WxPayRequest;
 import com.dicomclub.payment.module.pay.model.wxpay.WxPayResponse;
@@ -17,8 +16,8 @@ import com.dicomclub.payment.module.pay.model.wxpay.response.WxOrderQueryRespons
 import com.dicomclub.payment.module.pay.model.wxpay.response.WxPayAsyncResponse;
 import com.dicomclub.payment.module.pay.model.wxpay.response.WxPaySyncResponse;
 import com.dicomclub.payment.module.pay.service.PayStrategy;
-import com.dicomclub.payment.module.pay.service.wxpay.channel.WxPayMicroService;
-import com.dicomclub.payment.module.pay.service.wxpay.common.WxPaySignature;
+import com.dicomclub.payment.module.pay.service.wxpay.v2.channel.WxV2PayMicroService;
+import com.dicomclub.payment.module.pay.service.wxpay.v2.common.WxPaySignature;
 import com.dicomclub.payment.util.MapUtil;
 import com.dicomclub.payment.util.MoneyUtil;
 import com.dicomclub.payment.util.RandomUtil;
@@ -30,15 +29,18 @@ import okhttp3.RequestBody;
 import okhttp3.logging.HttpLoggingInterceptor;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.Primary;
 import org.springframework.stereotype.Component;
 import retrofit2.Call;
 import retrofit2.Response;
 import retrofit2.Retrofit;
 import retrofit2.converter.simplexml.SimpleXmlConverterFactory;
 
+import javax.servlet.http.HttpServletRequest;
 import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 /**
  * @author ftm
@@ -46,10 +48,11 @@ import java.util.Map;
  */
 @Slf4j
 @Component
-public class WxPayStrategy extends PayStrategy {
+@Primary
+public class WxV2PayStrategy extends PayStrategy {
 
     @Autowired
-    private WxPayMicroService wxPayMicroService;
+    private WxV2PayMicroService wxPayMicroService;
 
     /**
      * 订单预支付
@@ -123,11 +126,16 @@ public class WxPayStrategy extends PayStrategy {
     /**
      * 异步通知
      *
-     * @param notifyData
      * @return
      */
     @Override
-    public PayResponse asyncNotify(String notifyData ,PayConfig payConfig) {
+    public PayResponse asyncNotify(HttpServletRequest request, PayConfig payConfig) {
+        String notifyData = null;
+        try {
+            notifyData = request.getReader().lines().collect(Collectors.joining());
+        } catch (IOException e) {
+            throw new PayException(e.getMessage());
+        }
         WxPayConfig wxPayConfig = (WxPayConfig )payConfig;
         //签名校验
         if (!WxPaySignature.verify(XmlUtil.toMap(notifyData), wxPayConfig.getMchKey())) {
@@ -143,8 +151,8 @@ public class WxPayStrategy extends PayStrategy {
         String channelState = asyncResponse.getReturnCode();
         channelResult.setChannelState(WxTradeStatusEnum.findByName(channelState).getChannelState());
         if(channelResult.getChannelState() == ChannelState.CONFIRM_FAIL){
-            channelResult.setErrCode(channelState);
-            channelResult.setErrMsg(asyncResponse.getReturnMsg());
+            channelResult.setCode(channelState);
+            channelResult.setMsg(asyncResponse.getReturnMsg());
         }
 //       其他情况都非终态
         if(channelResult.getChannelState() == ChannelState.CONFIRM_SUCCESS){
@@ -155,13 +163,36 @@ public class WxPayStrategy extends PayStrategy {
     }
 
     /**
+     * 异步通知-退款
+     * 与支付结果不同的是，退款结果可能会受到更多的影响因素，比如退款金额、退款原因、退款渠道等，因此退款处理的时间可能会比支付处理更长。通过异步回调接口，商户可以及时获取退款结果，以便及时处理相关业务。
+     *
+     * @param request
+     * @param payConfig
+     * @return
+     */
+    @Override
+    public RefundResponse asyncNotifyRefund(HttpServletRequest request, PayConfig payConfig) {
+        return null;
+    }
+
+    /**
+     * 异步通知-退款
+     * 与支付结果不同的是，退款结果可能会受到更多的影响因素，比如退款金额、退款原因、退款渠道等，因此退款处理的时间可能会比支付处理更长。通过异步回调接口，商户可以及时获取退款结果，以便及时处理相关业务。
+     *
+     * @param request
+     * @param payConfig
+     * @return
+     */
+
+
+    /**
      * 订单结果查询
      *
      * @param request
      * @param payConfig
      */
     @Override
-    public OrderQueryResponse query(OrderQueryRequest request, PayConfig payConfig) {
+    public PayResponse query(OrderQueryRequest request, PayConfig payConfig) {
         WxPayConfig wxPayConfig = (WxPayConfig )payConfig;
         WxOrderQueryRequest wxRequest = new WxOrderQueryRequest();
         wxRequest.setOutTradeNo(request.getOrderNo());
@@ -200,15 +231,49 @@ public class WxPayStrategy extends PayStrategy {
             throw new RuntimeException("【微信订单查询】resultCode != SUCCESS, err_code = " + response.getErrCode() + ", err_code_des=" + response.getErrCodeDes());
         }
 
-        return OrderQueryResponse.builder()
-                .channelState(WxTradeStatusEnum.findByName(response.getTradeState()).getChannelState())
-                .resultMsg(response.getTradeStateDesc())
-                .outTradeNo(response.getTransactionId())
-                .orderNo(response.getOutTradeNo())
-                .attach(response.getAttach())
-                //yyyyMMddHHmmss -> yyyy-MM-dd HH:mm:ss
-                .finishTime(StringUtils.isEmpty(response.getTimeEnd()) ? "" : response.getTimeEnd().replaceAll("(\\d{4})(\\d{2})(\\d{2})(\\d{2})(\\d{2})(\\d{2})", "$1-$2-$3 $4:$5:$6"))
-                .build();
+
+        WxPayResponse wxPayResponse = new WxPayResponse();
+        wxPayResponse.setChannelState(WxTradeStatusEnum.findByName(response.getTradeState()).getChannelState());
+        wxPayResponse.setMsg(response.getTradeStateDesc());
+        wxPayResponse.setOutTradeNo(response.getTransactionId());
+        wxPayResponse.setOrderNo(response.getOutTradeNo());
+        wxPayResponse.setAttach(response.getAttach());
+        wxPayResponse.setFinishTime(StringUtils.isEmpty(response.getTimeEnd()) ? "" : response.getTimeEnd().replaceAll("(\\d{4})(\\d{2})(\\d{2})(\\d{2})(\\d{2})(\\d{2})", "$1-$2-$3 $4:$5:$6"));
+        return wxPayResponse;
+    }
+
+    /**
+     * 退款
+     *
+     * @param request
+     * @param payConfig
+     */
+    @Override
+    public RefundResponse refund(RefundRequest request, PayConfig payConfig) {
+        return null;
+    }
+
+    /**
+     * 退款查询
+     *
+     * @param refundNo
+     * @param payConfig
+     */
+    @Override
+    public RefundResponse refundQuery(RefundQueryRequest refundNo, PayConfig payConfig) {
+        return null;
+    }
+
+
+    /**
+     * 转账
+     *
+     * @param order
+     * @param payConfig
+     */
+    @Override
+    public TransferResponse transfer(TransferOrder order, PayConfig payConfig) {
+        return null;
     }
 
 
@@ -240,17 +305,18 @@ public class WxPayStrategy extends PayStrategy {
      */
     private PayResponse buildPayResponse(WxPayAsyncResponse response,WxPayResponse payResponse) {
 
-        payResponse.setReturnCode(response.getReturnCode());
-        payResponse.setReturnMsg(response.getReturnMsg());
-        payResponse.setResultCode(response.getResultCode());
-        payResponse.setErrCode(response.getErrCode());
-        payResponse.setErrCodeDes(response.getErrCodeDes());
-//        payResponse.setPayType(PayType.WX);
-        payResponse.setOrderAmount(MoneyUtil.Fen2Yuan(response.getTotalFee()));
-        payResponse.setOrderId(response.getOutTradeNo());
-        payResponse.setOutTradeNo(response.getTransactionId());
-        payResponse.setAttach(response.getAttach());
-        payResponse.setMwebUrl(response.getMwebUrl());
+//        payResponse.setReturnCode(response.getReturnCode());
+//        payResponse.setReturnMsg(response.getReturnMsg());
+//        payResponse.setResultCode(response.getResultCode());
+//        payResponse.setErrCode(response.getErrCode());
+//        payResponse.setErrCodeDes(response.getErrCodeDes());
+////        payResponse.setPayType(PayType.WX);
+//        payResponse.setOrderAmount(MoneyUtil.Fen2Yuan(response.getTotalFee()));
+//        payResponse.setOrderNo(response.getOutTradeNo());
+//        payResponse.setOutTradeNo(response.getTransactionId());
+//        payResponse.setAttach(response.getAttach());
+//        payResponse.setMwebUrl(response.getMwebUrl());
+        payResponse.setDataMap(JSON.parseObject(JSON.toJSONString(response)));
         return payResponse;
     }
 
@@ -275,17 +341,18 @@ public class WxPayStrategy extends PayStrategy {
 
         //返回的内容
         WxPayResponse payResponse = new WxPayResponse();
-        payResponse.setReturnCode(response.getReturnCode());
-        payResponse.setReturnMsg(response.getReturnMsg());
-        payResponse.setResultCode(response.getResultCode());
-        payResponse.setErrCode(response.getErrCode());
-        payResponse.setErrCodeDes(response.getErrCodeDes());
-        payResponse.setAppId(response.getAppid());
-        payResponse.setTimeStamp(timeStamp);
-        payResponse.setNonceStr(nonceStr);
-        payResponse.setSignType(signType);
-        payResponse.setMwebUrl(response.getMwebUrl());
+//        payResponse.setReturnCode(response.getReturnCode());
+//        payResponse.setReturnMsg(response.getReturnMsg());
+//        payResponse.setResultCode(response.getResultCode());
+//        payResponse.setErrCode(response.getErrCode());
+//        payResponse.setErrCodeDes(response.getErrCodeDes());
+//        payResponse.setAppId(response.getAppid());
+//        payResponse.setTimeStamp(timeStamp);
+//        payResponse.setNonceStr(nonceStr);
+//        payResponse.setSignType(signType);
+//        payResponse.setMwebUrl(response.getMwebUrl());
         payResponse.setCodeUrl(response.getCodeUrl());
+        payResponse.setDataMap(JSON.parseObject(JSON.toJSONString(response)));
 
         //区分APP支付，不需要拼接prepay_id, package="Sign=WXPay"
         if (response.getTradeType().equals(PayChannel.WXPAY_APP.getCode())) {
@@ -293,16 +360,18 @@ public class WxPayStrategy extends PayStrategy {
             map.put("package", packAge);
             map.put("prepayid", prepayId);
             map.put("partnerid", response.getMchId());
-            payResponse.setPackAge(packAge);
-            payResponse.setPaySign(WxPaySignature.signForApp(map, wxPayConfig.getMchKey()));
-            payResponse.setPrepayId(prepayId);
+//            payResponse.setPackAge(packAge);
+//            payResponse.setPaySign(WxPaySignature.signForApp(map, wxPayConfig.getMchKey()));
+//            payResponse.setPrepayId(prepayId);
+            payResponse.setDataMap(JSON.parseObject(JSON.toJSONString(response)));
             return payResponse;
         } else {
             prepayId = "prepay_id=" + prepayId;
             map.put("package", prepayId);
             map.put("signType", signType);
-            payResponse.setPackAge(prepayId);
-            payResponse.setPaySign(WxPaySignature.sign(map, wxPayConfig.getMchKey()));
+//            payResponse.setPackAge(prepayId);
+//            payResponse.setPaySign(WxPaySignature.sign(map, wxPayConfig.getMchKey()));
+            payResponse.setDataMap(JSON.parseObject(JSON.toJSONString(response)));
             return payResponse;
         }
     }

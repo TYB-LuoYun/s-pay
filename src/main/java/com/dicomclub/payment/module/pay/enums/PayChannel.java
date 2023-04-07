@@ -34,17 +34,17 @@ public enum PayChannel {
 
 
 
-    WXPAY_MP("wxpay_jsapi", PayType.WX, "微信公众账号支付"),
+    WXPAY_MP("JSAPI", PayType.WX, "微信公众账号支付"),
 
-    WXPAY_MWEB("wxpay_mweb", PayType.WX, "微信H5支付"),
+    WXPAY_MWEB("MWEB", PayType.WX, "微信H5支付"),
 
-    WXPAY_NATIVE("wxpay_native", PayType.WX, "微信Native支付"),
+    WXPAY_NATIVE("NATIVE", PayType.WX, "微信Native支付"),
 
-    WXPAY_MINI("wxpay_jsapi", PayType.WX, "微信小程序支付"),
+    WXPAY_MINI("JSAPI", PayType.WX, "微信小程序支付"),
 
-    WXPAY_APP("wxpay_app", PayType.WX, "微信APP支付"),
+    WXPAY_APP("APP", PayType.WX, "微信APP支付"),
 
-    WXPAY_MICRO("wxpay_micro", PayType.WX, "微信付款码支付"),
+    WXPAY_MICRO("MICRO", PayType.WX, "微信付款码支付"),
 
 
 
@@ -89,6 +89,10 @@ public enum PayChannel {
 //    }
 
     public static PayChannel getByCode(String code) {
+        PayChannel payChannel = PayChannel.valueOf(code);
+        if(payChannel!=null){
+            return payChannel;
+        }
         for (PayChannel bestPayTypeEnum : PayChannel.values()) {
             if (bestPayTypeEnum.code.equals(code)) {
                 return bestPayTypeEnum;

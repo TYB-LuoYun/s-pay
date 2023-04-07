@@ -1,21 +1,24 @@
 package com.dicomclub.payment.module.pay.service.alipay;
 
 import com.alipay.api.AlipayClient;
+import com.dicomclub.payment.exception.PayException;
+import com.dicomclub.payment.module.pay.common.ChannelStateRes;
 import com.dicomclub.payment.module.pay.config.AliPayConfig;
 import com.dicomclub.payment.module.pay.config.PayConfig;
 import com.dicomclub.payment.module.pay.constants.AliPayConstants;
 import com.dicomclub.payment.module.pay.enums.*;
-import com.dicomclub.payment.module.pay.model.OrderQueryRequest;
-import com.dicomclub.payment.module.pay.model.OrderQueryResponse;
-import com.dicomclub.payment.module.pay.model.PayRequest;
-import com.dicomclub.payment.module.pay.model.PayResponse;
+import com.dicomclub.payment.module.pay.model.*;
 import com.dicomclub.payment.module.pay.model.alipay.AliPayApi;
 import com.dicomclub.payment.module.pay.model.alipay.AliPayRequest;
 import com.dicomclub.payment.module.pay.model.alipay.AliPayResponse;
+import com.dicomclub.payment.module.pay.model.alipay.request.AliPayBankRequest;
 import com.dicomclub.payment.module.pay.model.alipay.request.AliPayOrderQueryRequest;
+import com.dicomclub.payment.module.pay.model.alipay.request.AliPayOrderRefundRequest;
 import com.dicomclub.payment.module.pay.model.alipay.request.AliPayPcRequest;
 import com.dicomclub.payment.module.pay.model.alipay.response.AliPayAsyncResponse;
+import com.dicomclub.payment.module.pay.model.alipay.response.AliPayBankResponse;
 import com.dicomclub.payment.module.pay.model.alipay.response.AliPayOrderQueryResponse;
+import com.dicomclub.payment.module.pay.model.alipay.response.AliPayOrderRefundResponse;
 import com.dicomclub.payment.module.pay.service.PayStrategy;
 import com.dicomclub.payment.module.pay.service.alipay.channel.AlipayAppService;
 import com.dicomclub.payment.module.pay.service.alipay.channel.AlipayBarCodeService;
@@ -32,12 +35,18 @@ import okhttp3.OkHttpClient;
 import okhttp3.logging.HttpLoggingInterceptor;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.Primary;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Component;
 import retrofit2.Call;
 import retrofit2.Response;
 import retrofit2.Retrofit;
 import retrofit2.converter.gson.GsonConverterFactory;
 
+import javax.servlet.http.HttpServletRequest;
 import java.io.IOException;
 import java.io.UnsupportedEncodingException;
 import java.net.URLDecoder;
@@ -45,6 +54,7 @@ import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 /**
  * @author ftm
@@ -52,6 +62,7 @@ import java.util.Map;
  */
 @Slf4j
 @Component
+@Primary
 public class AliPayStrategy extends PayStrategy {
 
     protected final static DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
@@ -71,7 +82,6 @@ public class AliPayStrategy extends PayStrategy {
 
     @Override
     public PayResponse pay(PayRequest payRequest, PayConfig payConfig){
-
         if(payRequest.getPayChannel() == PayChannel.ALIPAY_H5){
             return alipayH5Service.pay(payRequest,payConfig);
         }else if (payRequest.getPayChannel() == PayChannel.ALIPAY_QRCODE) {
@@ -138,11 +148,17 @@ public class AliPayStrategy extends PayStrategy {
     /**
      * 异步通知
      *
-     * @param notifyData
+     * @param
      * @return
      */
     @Override
-    public PayResponse asyncNotify(String notifyData,PayConfig payConfig) {
+    public PayResponse asyncNotify(HttpServletRequest request, PayConfig payConfig) {
+        String notifyData = null;
+        try {
+            notifyData = request.getReader().lines().collect(Collectors.joining());
+        } catch (IOException e) {
+           throw new PayException(e.getMessage());
+        }
         AliPayConfig aliPayConfig = (AliPayConfig) payConfig;
         try {
             notifyData = URLDecoder.decode(notifyData, "UTF-8");
@@ -163,7 +179,7 @@ public class AliPayStrategy extends PayStrategy {
         payResponse.setChannelState(ChannelState.WAITING);
         payResponse.setChannelState(AlipayTradeStatusEnum.findByName(tradeStatus).getChannelState());
         if(payResponse.getChannelState() == ChannelState.CONFIRM_FAIL){
-            payResponse.setErrCode(tradeStatus);
+            payResponse.setCode(tradeStatus);
         }
 
         if(payResponse.getChannelState() == ChannelState.CONFIRM_SUCCESS){
@@ -173,12 +189,25 @@ public class AliPayStrategy extends PayStrategy {
         return payResponse;
     }
 
+    /**
+     * 异步通知-退款
+     * 与支付结果不同的是，退款结果可能会受到更多的影响因素，比如退款金额、退款原因、退款渠道等，因此退款处理的时间可能会比支付处理更长。通过异步回调接口，商户可以及时获取退款结果，以便及时处理相关业务。
+     *
+     * @param request
+     * @param payConfig
+     * @return
+     */
+    @Override
+    public RefundResponse asyncNotifyRefund(HttpServletRequest request, PayConfig payConfig) {
+        return null;
+    }
+
 
     /**
      * 查询
      */
     @Override
-    public OrderQueryResponse query(OrderQueryRequest request,PayConfig payConfig) {
+    public PayResponse query(OrderQueryRequest request,PayConfig payConfig) {
         AliPayConfig aliPayConfig = (AliPayConfig) payConfig;
         AliPayOrderQueryRequest aliPayOrderQueryRequest = new AliPayOrderQueryRequest();
         aliPayOrderQueryRequest.setAppId(aliPayConfig.getAppId());
@@ -212,17 +241,137 @@ public class AliPayStrategy extends PayStrategy {
             throw new RuntimeException("【查询支付宝订单】code=" + response.getCode() + ", returnMsg=" + response.getMsg() + String.format("|%s|%s", response.getSubCode(), response.getSubMsg()));
         }
 
-        return OrderQueryResponse.builder()
-                .channelState(AlipayTradeStatusEnum.findByName(response.getTradeStatus()).getChannelState())
+
+        AliPayResponse aliPayResponse = new AliPayResponse();
+        aliPayResponse
+                .setChannelState(AlipayTradeStatusEnum.findByName(response.getTradeStatus()).getChannelState());
+        aliPayResponse.setOutTradeNo(response.getTradeNo());
+                aliPayResponse.setOrderNo(response.getOutTradeNo());
+                aliPayResponse.setMsg(response.getMsg());
+                aliPayResponse.setFinishTime(response.getSendPayDate());
+        return aliPayResponse;
+    }
+
+    /**
+     * 退款
+     *
+     * @param request
+     * @param payConfig
+     */
+    @Override
+    public RefundResponse refund(RefundRequest request, PayConfig payConfig) {
+        AliPayConfig aliPayConfig =(AliPayConfig) payConfig;
+        AliPayOrderRefundRequest aliPayOrderRefundRequest = new AliPayOrderRefundRequest();
+        aliPayOrderRefundRequest.setAppId(aliPayConfig.getAppId());
+        aliPayOrderRefundRequest.setTimestamp(LocalDateTime.now().format(formatter));
+        AliPayOrderRefundRequest.BizContent bizContent = new AliPayOrderRefundRequest.BizContent();
+        bizContent.setOutTradeNo(request.getOrderNo());
+        bizContent.setRefundReason(request.getRefundReason());
+        bizContent.setRefundAmount(request.getRefundAmount().doubleValue());
+        bizContent.setOutRequestNo(request.getRefundNo());
+        aliPayOrderRefundRequest.setBizContent(JsonUtil.toJsonWithUnderscores(bizContent).replaceAll("\\s*", ""));
+        aliPayOrderRefundRequest.setSign(AliPaySignature.sign(MapUtil.object2MapWithUnderline(aliPayOrderRefundRequest), aliPayConfig.getPrivateKey()));
+
+        Call<AliPayOrderRefundResponse> call = null;
+        if (aliPayConfig.isSandbox()) {
+            call = devRetrofit.create(AliPayApi.class).refund((MapUtil.object2MapWithUnderline(aliPayOrderRefundRequest)));
+        } else {
+            call = retrofit.create(AliPayApi.class).refund((MapUtil.object2MapWithUnderline(aliPayOrderRefundRequest)));
+        }
+
+        Response<AliPayOrderRefundResponse> retrofitResponse = null;
+        try {
+            retrofitResponse = call.execute();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+        assert retrofitResponse != null;
+        if (!retrofitResponse.isSuccessful()) {
+            throw new RuntimeException("【支付宝退款】网络异常");
+        }
+        assert retrofitResponse.body() != null;
+        AliPayOrderRefundResponse.AlipayTradeRefundResponse response = retrofitResponse.body().getAlipayTradeRefundResponse();
+        if (!response.getCode().equals(AliPayConstants.RESPONSE_CODE_SUCCESS)) {
+            throw new RuntimeException("【支付宝退款】code=" + response.getCode() + ", returnMsg=" + response.getMsg() + String.format("|%s|%s", response.getSubCode(), response.getSubMsg()));
+        }
+
+        return RefundResponse.builder()
                 .outTradeNo(response.getTradeNo())
                 .orderNo(response.getOutTradeNo())
-                .resultMsg(response.getMsg())
-                .finishTime(response.getSendPayDate())
+                .outRefundNo(response.getTradeNo())
+                .refundAmount(response.getRefundFee())
+                .refundNo(request.getRefundNo())
                 .build();
     }
 
+    /**
+     * 退款查询
+     *
+     * @param refundNo
+     * @param payConfig
+     */
+    @Override
+    public RefundResponse refundQuery(RefundQueryRequest refundNo, PayConfig payConfig) {
+        return null;
+    }
 
+    /**
+     * 转账
+     *
+     * @param
+     * @param payConfig
+     */
+    @Override
+    public TransferResponse transfer(TransferOrder request, PayConfig payConfig) {
+        AliPayConfig aliPayConfig = (AliPayConfig) payConfig;
+        AliPayBankRequest aliPayBankRequest = new AliPayBankRequest();
+        aliPayBankRequest.setAppId(aliPayConfig.getAppId());
+        aliPayBankRequest.setTimestamp(LocalDateTime.now().format(formatter));
+        AliPayBankRequest.BizContent bizContent = new AliPayBankRequest.BizContent();
+        bizContent.setOutBizNo(request.getTransferId());
+        bizContent.setProductCode("TRANS_BANKCARD_NO_PWD"); // 销售产品码。单笔无密转账固定为 TRANS_ACCOUNT_NO_PWD
+        bizContent.setOrderTitle("转账");                     // 转账业务的标题，用于在支付宝用户的账单里显示。
+        bizContent.setRemark(request.getTransferDesc());
+        AliPayBankRequest.BizContent.Participant participant = new AliPayBankRequest.BizContent.Participant();
+        participant.setIdentity(request.getAccountNo());
+        participant.setName(StringUtils.defaultString(request.getAccountName(), null));
+        participant.setIdentityType("BANKCARD_ACCOUNT");  //ALIPAY_USERID： 支付宝用户ID      ALIPAY_LOGONID:支付宝登录账号
+        AliPayBankRequest.BizContent.Participant.BankcardExtInfo bankcardExtInfo = new AliPayBankRequest.BizContent.Participant.BankcardExtInfo();
+        //暂时先默认对私
+        bankcardExtInfo.setAccountType(2);
+//        bankcardExtInfo.setBankCode(request.getBankCode());
+        participant.setBankcardExtInfo(bankcardExtInfo);
+        bizContent.setPayeeInfo(participant);
+        aliPayBankRequest.setBizContent(JsonUtil.toJsonWithUnderscores(bizContent).replaceAll("\\s*", ""));
+        aliPayBankRequest.setSign(AliPaySignature.sign(MapUtil.object2MapWithUnderline(aliPayBankRequest), aliPayConfig.getPrivateKey()));
 
+        Call<AliPayBankResponse> call = retrofit.create(AliPayApi.class).payBank((MapUtil.object2MapWithUnderline(aliPayBankRequest)));
+
+        Response<AliPayBankResponse> retrofitResponse = null;
+        try {
+            retrofitResponse = call.execute();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+        assert retrofitResponse != null;
+        if (!retrofitResponse.isSuccessful()) {
+            throw new RuntimeException("【支付宝转账到银行卡】网络异常");
+        }
+        assert retrofitResponse.body() != null;
+        AliPayBankResponse.AlipayFundTransUniTransferResponse response = retrofitResponse.body().getAlipayFundTransUniTransferResponse();
+        if (!response.getCode().equals(AliPayConstants.RESPONSE_CODE_SUCCESS)) {
+            throw new RuntimeException("【支付宝转账到银行卡】code=" + response.getCode() + ", returnMsg=" + response.getMsg());
+        }
+
+//        return TransferResponse.builder()
+//                .transferId(response.getOutBizNo())
+//                .outTradeNo(response.getOrderId())
+//                .payFundOrderId(response.getPayRundOrderId())
+//                .status(response.getStatus())
+//                .build();
+        //todo
+        return null;
+    }
 
 
 
@@ -257,7 +406,7 @@ public class AliPayStrategy extends PayStrategy {
 
 //        payResponse.setPayType(PayType.ALIPAY);
         payResponse.setOrderAmount(Double.valueOf(response.getTotalAmount()));
-        payResponse.setOrderId(response.getOutTradeNo());
+        payResponse.setOrderNo(response.getOutTradeNo());
         payResponse.setOutTradeNo(response.getTradeNo());
         payResponse.setAttach(response.getPassbackParams());
         return payResponse;
