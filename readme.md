@@ -4,6 +4,7 @@ spay-boot-starter目前已支持支付宝，银联，微信V3/v2各渠道支付�
 
 # 使用教程
 - 引入依赖(pom.xml)
+
 最新版请到<https://mvnrepository.com/artifact/io.github.tyb-luoyun/spay-spring-boot-starter>查看
 ```
 <dependency>
