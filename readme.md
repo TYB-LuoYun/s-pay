@@ -9,10 +9,10 @@ spay-boot-starter目前已支持支付宝，银联，微信V3/v2各渠道支付�
 
 最新版请到 <https://mvnrepository.com/artifact/io.github.tyb-luoyun/spay-spring-boot-starter> 查看
 ```
-<dependency>
-    <groupId>com.dicomclub</groupId>
-    <artifactId>spay-spring-boot-starter</artifactId>
-    <version>1.1.1</version>
+<dependency>-->
+   <groupId>io.github.tyb-luoyun</groupId>
+   <artifactId>spay-spring-boot-starter</artifactId>
+   <version>1.1.1</version> 
 </dependency>
 ```
 
