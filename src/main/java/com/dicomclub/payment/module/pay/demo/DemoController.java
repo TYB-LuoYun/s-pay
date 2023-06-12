@@ -1,11 +1,15 @@
 package com.dicomclub.payment.module.pay.demo;
 
 import com.dicomclub.payment.module.pay.config.AliPayConfig;
+import com.dicomclub.payment.module.pay.config.UnionPayConfig;
 import com.dicomclub.payment.module.pay.enums.PayChannel;
 import com.dicomclub.payment.module.pay.model.OrderQueryRequest;
 import com.dicomclub.payment.module.pay.model.PayResponse;
 import com.dicomclub.payment.module.pay.model.alipay.AliPayRequest;
+import com.dicomclub.payment.module.pay.model.union.UnionPayRequest;
+import com.dicomclub.payment.module.pay.service.PayStrategy;
 import com.dicomclub.payment.module.pay.service.alipay.AliPayStrategy;
+import com.dicomclub.payment.module.pay.service.union.UnionPayStrategy;
 import com.dicomclub.payment.util.httpRequest.CertStoreType;
 
 import java.math.BigDecimal;
@@ -53,30 +57,7 @@ public class DemoController {
         System.out.println(pay.getPayUrl());
     }
 
-    public static void main(String[] args){
-//        AliPayStrategy payStrategy = new AliPayStrategy();
-//        AliPayRequest aliPayRequest = new AliPayRequest();
-//        AliPayConfig config = new AliPayConfig();
-//        config.setAppId("2016080400165436");
-//        config.setPrivateKey("MIICdgIBADANBgkqhkiG9w0BAQEFAASCAmAwggJcAgEAAoGBAKroe/8h5vC4L6T+B2WdXiVwGsMvUKgb2XsKix6VY3m2wcf6tyzpNRDCNykbIwGtaeo7FshN+qZxdXHLiIam9goYncBit/8ojfLGy2gLxO/PXfzGxYGs0KsDZ+ryVPPmE34ZZ8jiJpR0ygzCFl8pN3QJPJRGTJn5+FTT9EF/9zyZAgMBAAECgYAktngcYC35u7cQXDk+jMVyiVhWYU2ULxdSpPspgLGzrZyG1saOcTIi/XVX8Spd6+B6nmLQeF/FbU3rOeuD8U2clzul2Z2YMbJ0FYay9oVZFfp5gTEFpFRTVfzqUaZQBIjJe/xHL9kQVqc5xHlE/LVA27/Kx3dbC35Y7B4EVBDYAQJBAOhsX8ZreWLKPhXiXHTyLmNKhOHJc+0tFH7Ktise/0rNspojU7o9prOatKpNylp9v6kux7migcMRdVUWWiVe+4ECQQC8PqsuEz7B0yqirQchRg1DbHjh64bw9Kj82EN1/NzOUd53tP9tg+SO97EzsibK1F7tOcuwqsa7n2aY48mQ+y0ZAkBndA2xcRcnvOOjtAz5VO8G7R12rse181HjGfG6AeMadbKg30aeaGCyIxN1loiSfNR5xsPJwibGIBg81mUrqzqBAkB+K6rkaPXJR9XtzvdWb/N3235yPkDlw7Z4MiOVM3RzvR/VMDV7m8lXoeDde2zQyeMOMYy6ztwA6WgE1bhGOnQRAkEAouUBv1sVdSBlsexX15qphOmAevzYrpufKgJIRLFWQxroXMS7FTesj+f+FmGrpPCxIde1dqJ8lqYLTyJmbzMPYw==");
-//        config.setAliPayPublicKey("MIGfMA0GCSqGSIb3DQEBAQUAA4GNADCBiQKBgQDIgHnOn7LLILlKETd6BFRJ0GqgS2Y3mn1wMQmyh9zEyWlz5p1zrahRahbXAfCfSqshSNfqOmAQzSHRVjCqjsAw1jyqrXaPdKBmr90DIpIxmIyKXv4GGAkPyJ/6FTFY99uhpiq0qadD/uSzQsefWo0aTvP/65zi3eof7TcZ32oWpwIDAQAB");
-//        config.setSandbox(true);
-//        config.setSignType("RSA");
-//        aliPayRequest.setOrderNo("583hcy3hjud3hncisw3j");
-//        aliPayRequest.setOrderAmount(BigDecimal.valueOf(56));
-//
-//        aliPayRequest.setPayChannel(PayChannel.ALIPAY_PC);
-//
-//        PayResponse pay = payStrategy.pay(aliPayRequest, config);
-//        System.out.println(pay.getPayUrl());
-//        OrderQueryRequest request = new OrderQueryRequest();
-//        request.setOutOrderNo("eeeeeeeeee");
-//        request.setOrderNo("eeeeeeeeeeee");
-//        PayResponse pay1 = payStrategy.query(request, config);
 
-
-        testAliPayCert();
-    }
     /**
      * 证书模式
      */
@@ -86,9 +67,9 @@ public class DemoController {
         AliPayConfig config = new AliPayConfig();
         config.setAppId("2021000122673060");
         config.setPrivateKey("MIIEvAIBADANBgkqhkiG9w0BAQEFAASCBKYwggSiAgEAAoIBAQDX4BAzDn5VMDBrymU4eUImtdpVoIWcyeVenxb5s7uyu2Ojana4b1HiiFLKWgkDkalrJWeToKw0rCCrWmOnL002Ae7g7iewT32ACBQ7zTXBs2THt4Pj0Uwx6TteJY34MyZ6CB4BnZu5L7jvAQx0Fo7mceGSIX0zyOD1hg0vSDf/sRDoArhQoHslf/cBydxvdzJ6wp+Od3UbxAJYYZ8RWP4fvK9v3npZub5Vs2tDFLVJcMYCWwyWXqSAf4xX2D8PdqAv6NPRbIl4rMsTGyj/Dnaa9z+QutpY7I3bQcKgYRk648qIhNR7Jj1SwxS9zuzQ32iRmtowKMRH/y3vUfUZdtDTAgMBAAECggEAVcLaLK5xWf6O/gOmOs1RjndoieP/sM40pWamhgT1aIgxiVZeW989tLVbzq/+LMDNgZeWknuebj6DrA94z45nKjGSaSGz+sNZpGeRQkDAPne6be1mJDeeAaYaw8g/on8PpiNbaGDo4KUo3yqXe/cKRlqvtpI/XzdKx7+9tS8HsDg5I+x+2mIJnWsJuCrHhjlCfeesHsk9lYoEY2OejPKUEKACl6MQXOHUvkgbt3jzrqss5VEKk19/+nQPqVUdy1mdjobNEtvnZAUVxJc/I0YT6mSgwgJnwhGNXe50hmZ0p0/Ry27+c9t3fzxf3m8JEaqYEnbMBuGPvNYHHM5OABAcwQKBgQDuznNLA4MsCt5UWpBrCoofjQJEIL7sU0jyvYr1cr8KYorqWqCRy9qi5x7P2otv3X3Q0RiLA8Or78H1BnoEuqyS1ArlUERse8sj/+34RJB8eDs5EqLYECnJss4nAFbLnSoggm3XI8CFfx0z1xPjdAROHe/H6RNrx4HFp0Yq8Gj1SwKBgQDnavUlkvTCdvjgzXzbnXmiBSGt60nlGl65ayuYvcdyd/j8G/2GYvrlyNW32SHDNAhloevxB7/eeGUT0svFW9XNkF6BgRuViRa7E9XNKLj69Pz3wdQbkaBvwrTLDIXZOIYri5uhtqLX7tOMtQcvRSSiNYmn1XFkURRldgxkMX1FmQKBgEnLil037KUDhsjSY6ZwT1aIoJak99rXsccxQ2ut1dNDuGHLN6tWL23/tcnNYyFidKq+srLiqujK4kjxg2tKtGF7HRLXxw0vBAtP3x3FMlEEZmiwlZnnBMLLemEa/bdWDdqV85Nz/N5D9aY7ZG35QAtTvPEt2U6JDFUj588FE6oZAoGARLGtP5AV87vZOPIGhDKErqGTU8sqTkW7pJK5iEedcs9GK6Ara77p91fciQx9RzKk43ZjUVMZk3JtnqrOLjGKj9CxHQQ0Kflds/65UoMqFeSvSuRQkDZ0R3imrjdza/2pZje05RYP1MViKrx5+4As1bHKwPVNCZg/07ZtCzjdlNECgYAlzFxAw+ypNKYTJQXJMH9i6t3N4RPo3lJvW70Veqx8hLKG65g7svMgmu+xG56LGPGFTds4wXUq9ZQpQJocJjGyp0ECsXcRggEXbvHDubuAEclBdVL9ZIjQFDAUWuMLnLxAyyEQgqGcdTdzj2wbb/0YjB/xfZrrIU5c8v+U99zhUg==");
-        config.setAliPayRootCert("D:\\1work\\项目资料\\支付\\支付宝测试证书\\alipayRootCert.crt");
-        config.setAliPayPublicCert("D:\\1work\\项目资料\\支付\\支付宝测试证书\\alipayPublicCert.crt");
-        config.setAppPublicCert("D:\\1work\\项目资料\\支付\\支付宝测试证书\\appPublicCert.crt");
+        config.setAliPayRootCert("D:/1work/项目资料/支付/支付宝测试证书/alipayRootCert.crt");
+        config.setAliPayPublicCert("D:/1work/项目资料/支付/支付宝测试证书/alipayPublicCert.crt");
+        config.setAppPublicCert("D:/1work/项目资料/支付/支付宝测试证书/appPublicCert.crt");
         config.setCertStoreType(CertStoreType.PATH);
         config.setUseCert(true);
         config.setSandbox(true);
@@ -100,6 +81,33 @@ public class DemoController {
 
         PayResponse pay = payStrategy.pay(aliPayRequest, config);
         System.out.println(pay.getPayUrl());
+    }
+
+    public static void main(String[] args){
+        testUnionPay();
+    }
+
+    public static void testUnionPay(){
+        PayStrategy payStrategy = new UnionPayStrategy();
+        UnionPayRequest aliPayRequest = new UnionPayRequest();
+        UnionPayConfig config = new UnionPayConfig();
+        config.setMchId("777290058202371");
+        config.setAcpMiddleCert("D:/1Anets.top/code/s-pay/src/main/resources/union/1677569632937acp_test_middle.cer");
+        config.setAcpRootCert("D:/1Anets.top/code/s-pay/src/main/resources/union/1677569698412acp_test_root.cer");
+        config.setKeyPrivateCert("D:/1Anets.top/code/s-pay/src/main/resources/union/1677566549775acp_test_sign.pfx");
+        config.setKeyPrivateCertPwd("000000");
+        config.setCertStoreType(CertStoreType.PATH);
+        config.setNotifyUrl("http://127.0.0.1");
+
+        config.setSandbox(true);
+        aliPayRequest.setOrderName("name");
+        aliPayRequest.setOrderNo("583hcy3hjud3hncisw3j");
+        aliPayRequest.setOrderAmount(BigDecimal.valueOf(56));
+
+        aliPayRequest.setPayChannel(PayChannel.UNION_QRCODE);
+
+        PayResponse pay = payStrategy.pay(aliPayRequest, config);
+        System.out.println(pay.buildPayData());
     }
 
 }

@@ -25,7 +25,7 @@ public class PayConfig {
 
 
     /** 签名方式 **/
-    private String signType;
+    private String signType = "RSA2";
 
 
 

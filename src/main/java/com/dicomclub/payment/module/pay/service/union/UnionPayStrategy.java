@@ -1,6 +1,8 @@
 package com.dicomclub.payment.module.pay.service.union;
 
 import com.alibaba.fastjson.JSONObject;
+import com.dicomclub.payment.exception.PayError;
+import com.dicomclub.payment.exception.PayErrorException;
 import com.dicomclub.payment.exception.PayException;
 import com.dicomclub.payment.module.pay.common.ChannelStateRes;
 import com.dicomclub.payment.module.pay.config.PayConfig;
@@ -31,12 +33,16 @@ import com.dicomclub.payment.util.httpRequest.HttpConfigStorage;
 import com.dicomclub.payment.util.httpRequest.HttpRequestTemplate;
 import com.dicomclub.payment.util.httpRequest.UriVariables;
 import lombok.extern.slf4j.Slf4j;
+import net.glxn.qrgen.core.image.ImageType;
+import net.glxn.qrgen.javase.QRCode;
 import org.apache.commons.lang3.StringUtils;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Primary;
 import org.springframework.stereotype.Component;
 
 import javax.servlet.http.HttpServletRequest;
 import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.security.GeneralSecurityException;
@@ -55,7 +61,8 @@ import java.util.stream.Collectors;
 public class UnionPayStrategy extends PayStrategy {
 
 
-  private HttpRequestTemplate requestTemplate = null;
+  @Autowired
+  private HttpRequestTemplate requestTemplate  ;
 
   /**
    * 测试域名
@@ -102,22 +109,63 @@ public class UnionPayStrategy extends PayStrategy {
     UnionPayConfig unionPayConfig = (UnionPayConfig) payConfig;
 //      证书,这个可以缓存起来
     CertDescriptor certDescriptor = initCertDescriptor(unionPayConfig);
-
-
-    UnionPayRequest order = (UnionPayRequest) payRequest;
-    Map<String, Object> params = this.getCommonParam(unionPayConfig);
+    Map<String, Object> params = orderInfo((UnionPayRequest) payRequest, unionPayConfig);
+//        params = preOrderHandler(params, order);
+    Map<String, Object> map = setSign(params ,unionPayConfig,certDescriptor);
     PayChannel type = payRequest.getPayChannel();
+    UnionPayResponse response = new UnionPayResponse();
+    switch (type) {
+      case UNION_WEB_GATEWAY:
+        String directHtml = buildRequest(map,unionPayConfig);
+        if(payRequest.getPayDataType()!=null&&payRequest.getPayDataType() == PayDataType.PAY_URL){
+          response.setPayUrl(getUnionRequestUrl(params, unionPayConfig));
+        }else if(payRequest.getPayDataType() == PayDataType.FORM){
+          response.setFormContent(buildForm(map,unionPayConfig));
+        }else{
+          response.setBody(directHtml);
+        }
+        break;
+      case UNION_QRCODE:
+        String responseStr = requestTemplate.postForObject(String.format(BACK_TRANS_URL, getReqUrl(unionPayConfig.isSandbox())), params, String.class);
+        JSONObject res  = UriVariables.getParametersToMap(responseStr);
+        if (res.isEmpty()) {
+          throw new PayException( "failure 响应内容有误!" + responseStr);
+        }
+        if (this.verify(res,unionPayConfig)) {
+          if (UnionPayConstants.OK_RESP_CODE.equals(res.get(UnionPayConstants.param_respCode))) {
+            //成功
+            String qrCode =  (String)res.get(UnionPayConstants.param_qrCode);
+            this.handleQrcodeResult(qrCode,payRequest.getPayDataType(),response);
+            response.setCodeUrl(qrCode);
+          }else{
+            throw new PayException((String) res.get(UnionPayConstants.param_respCode), res.get(UnionPayConstants.param_respMsg)+res.toJSONString());
+          }
+         }
+        break;
+      default:
+        throw new PayException("暂未实现");
+    }
+
+
+
+    return response;
+  }
+
+  private boolean verify(Map res,UnionPayConfig unionPayConfig) {
+    return this.signVerify(res, (String) res.get(UnionPayConstants.param_signature),unionPayConfig);
+  }
+
+
+  public Map<String, Object> orderInfo(UnionPayRequest order ,UnionPayConfig unionPayConfig){
+    Map<String, Object> params = this.getCommonParam(unionPayConfig);
+    PayChannel type = order.getPayChannel();
 //      后台通知地址
     OrderParaStructure.loadParameters(params, UnionPayConstants.param_backUrl, unionPayConfig.getNotifyUrl());
     OrderParaStructure.loadParameters(params, UnionPayConstants.param_backUrl,order.getNotifyUrl());
 
-    //设置交易类型相关的参数
-    if(payRequest.getPayChannel() == PayChannel.UNION_WEB_GATEWAY){
-      UnionTransactionType.WEB.convertMap(params);
-    }
-    if(payRequest.getPayChannel() == PayChannel.UNION_MOBILE_WAP){
-      UnionTransactionType.WAP.convertMap(params);
-    }
+
+
+
 
     params.put(UnionPayConstants.param_orderId, order.getOrderNo());
 
@@ -126,7 +174,9 @@ public class UnionPayStrategy extends PayStrategy {
     }
     switch (type) {
       case UNION_MOBILE_WAP:
+        UnionTransactionType.WAP.convertMap(params);
       case UNION_WEB_GATEWAY:
+        UnionTransactionType.WEB.convertMap(params);
         //todo PCwap网关跳转支付特殊用法.txt
       case UNION_B2B:
         // 总金额(单位是分)
@@ -145,6 +195,7 @@ public class UnionPayStrategy extends PayStrategy {
         params.put(UnionPayConstants.param_qrNo, order.getAuthCode());
         break;
       case UNION_QRCODE:
+        UnionTransactionType.APPLY_QR_CODE.convertMap(params);
         if (null != order.getOrderAmount()) {
           params.put(UnionPayConstants.param_txnAmt, Util.conversionCentAmount(order.getOrderAmount()));
         }
@@ -158,18 +209,7 @@ public class UnionPayStrategy extends PayStrategy {
     if(order.getAttrs() != null){
       params.putAll(order.getAttrs());
     }
-//        params = preOrderHandler(params, order);
-    Map<String, Object> map = setSign(params ,unionPayConfig,certDescriptor);
-    String directHtml = buildRequest(map,unionPayConfig);
-    UnionPayResponse response = new UnionPayResponse();
-    if(payRequest.getPayDataType()!=null&&payRequest.getPayDataType() == PayDataType.PAY_URL){
-      response.setPayUrl(getUnionRequestUrl(params, unionPayConfig));
-    }else if(payRequest.getPayDataType() == PayDataType.FORM){
-      response.setFormContent(buildForm(map,unionPayConfig));
-    }else{
-      response.setBody(directHtml);
-    }
-    return response;
+    return params;
   }
 
   private CertDescriptor initCertDescriptor(UnionPayConfig unionPayConfig) {

@@ -1,15 +1,21 @@
 package com.dicomclub.payment.module.pay.service;
 
+import com.alibaba.fastjson.JSONObject;
 import com.dicomclub.payment.module.pay.common.ChannelStateRes;
 import com.dicomclub.payment.module.pay.config.PayConfig;
+import com.dicomclub.payment.module.pay.enums.PayDataType;
 import com.dicomclub.payment.module.pay.model.*;
 import com.dicomclub.payment.module.pay.model.wxpay.BillResponse;
 import com.dicomclub.payment.module.pay.model.wxpay.DivisionReceiverBind;
 import com.dicomclub.payment.module.pay.model.wxpay.BillRequest;
+import net.glxn.qrgen.core.image.ImageType;
+import net.glxn.qrgen.javase.QRCode;
 import org.apache.http.HttpEntity;
 import org.apache.http.HttpHeaders;
 
 import javax.servlet.http.HttpServletRequest;
+import java.io.ByteArrayOutputStream;
+import java.util.Base64;
 
 /**
  * @author ftm
@@ -83,5 +89,17 @@ public abstract class PayStrategy {
 
 
 
-//    public abstract HttpEntity setSign();
+
+
+
+    public void  handleQrcodeResult(String qrCode,PayDataType payDataType,PayResponse payResponse){
+        if(payDataType != null && payDataType== PayDataType.CODE_URL){
+            payResponse.setCodeUrl(qrCode);
+        }else{
+            //          生成图片
+            ByteArrayOutputStream stream = QRCode.from(qrCode).to(ImageType.PNG).withSize(350, 350).stream();
+            String base64String = Base64.getEncoder().encodeToString(stream.toByteArray());
+            payResponse.setCodeImgUrl("data:image/png;base64," +base64String);
+        }
+    };
 }

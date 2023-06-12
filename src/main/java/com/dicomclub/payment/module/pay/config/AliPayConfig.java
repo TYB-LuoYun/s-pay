@@ -17,7 +17,7 @@ import java.util.Objects;
 public class AliPayConfig extends PayConfig {
     /** 网关地址 */
     public static String PROD_SERVER_URL = "https://openapi.alipay.com/gateway.do";
-    public static String SANDBOX_SERVER_URL = "https://openapi.alipaydev.com/gateway.do";
+    public static String SANDBOX_SERVER_URL = "https://openapi-sandbox.dl.alipaydev.com/gateway.do";
 
     public static String PROD_OAUTH_URL = "https://openauth.alipay.com/oauth2/publicAppAuthorize.htm?app_id=%s&scope=auth_base&state=&redirect_uri=%s";
     public static String SANDBOX_OAUTH_URL = "https://openauth.alipaydev.com/oauth2/publicAppAuthorize.htm?app_id=%s&scope=auth_base&state=&redirect_uri=%s";

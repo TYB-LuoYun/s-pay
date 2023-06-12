@@ -88,4 +88,14 @@ public enum PayChannel {
         }
         throw new RuntimeException("不支持的渠道");
     }
+
+
+    public static PayChannel getChannel(String code) {
+        for (PayChannel bestPayTypeEnum : PayChannel.values()) {
+            if (bestPayTypeEnum.code.equals(code)||bestPayTypeEnum.name().equals(code)) {
+                return bestPayTypeEnum;
+            }
+        }
+        return null;
+    }
 }

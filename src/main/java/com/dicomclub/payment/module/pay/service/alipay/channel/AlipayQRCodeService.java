@@ -20,6 +20,7 @@ import net.glxn.qrgen.core.image.ImageType;
 import net.glxn.qrgen.javase.QRCode;
 import okhttp3.OkHttpClient;
 import okhttp3.logging.HttpLoggingInterceptor;
+import org.apache.commons.lang3.StringUtils;
 import org.springframework.stereotype.Component;
 import retrofit2.Call;
 import retrofit2.Response;
@@ -30,6 +31,7 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.time.LocalDateTime;
 import java.util.Base64;
+import java.util.Map;
 
 /**
  * @author ftm
@@ -53,15 +55,20 @@ public class AlipayQRCodeService extends AliPayStrategy {
             bizContent.setTotalAmount(request.getOrderAmount().doubleValue());
         }
         bizContent.setSubject(request.getOrderName());
-
+        if(StringUtils.isNotBlank(payConfig.getSignType())){
+            aliPayOrderQueryRequest.setSignType(payConfig.getSignType());
+        }
         aliPayOrderQueryRequest.setBizContent(JsonUtil.toJsonWithUnderscores(bizContent).replaceAll("\\s*", ""));
-        aliPayOrderQueryRequest.setSign(AliPaySignature.sign(MapUtil.object2MapWithUnderline(aliPayOrderQueryRequest), aliPayConfig.getPrivateKey()));
+        Map<String, String> map = MapUtil.object2MapWithUnderline(aliPayOrderQueryRequest);
+        loadCert(map,aliPayConfig );
+        map.put("sign",AliPaySignature.sign(map, aliPayConfig.getPrivateKey()) );
+//        aliPayOrderQueryRequest.setSign(AliPaySignature.sign(MapUtil.object2MapWithUnderline(aliPayOrderQueryRequest), aliPayConfig.getPrivateKey()));
 
         Call<AliPayOrderCreateResponse> call;
         if (aliPayConfig.isSandbox()) {
-            call = devRetrofit.create(AliPayApi.class).tradeCreate((MapUtil.object2MapWithUnderline(aliPayOrderQueryRequest)));
+            call = devRetrofit.create(AliPayApi.class).tradeCreate(map);
         } else {
-            call = retrofit.create(AliPayApi.class).tradeCreate((MapUtil.object2MapWithUnderline(aliPayOrderQueryRequest)));
+            call = retrofit.create(AliPayApi.class).tradeCreate(map);
         }
         Response<AliPayOrderCreateResponse> retrofitResponse = null;
         try {
@@ -83,15 +90,7 @@ public class AlipayQRCodeService extends AliPayStrategy {
         payResponse.setOutTradeNo(response.getTradeNo());
         payResponse.setOrderNo(response.getOutTradeNo());
         String qrCode = response.getQrCode();
-        if(request.getPayDataType() != null && request.getPayDataType() == PayDataType.CODE_URL){
-            payResponse.setCodeUrl(qrCode);
-        }else{
-            //          生成图片
-            ByteArrayOutputStream stream = QRCode.from(qrCode).to(ImageType.PNG).withSize(350, 350).stream();
-            String base64String = Base64.getEncoder().encodeToString(stream.toByteArray());
-            payResponse.setCodeImgUrl("data:image/png;base64," +base64String);
-        }
-
+        this.handleQrcodeResult(qrCode,request.getPayDataType() ,payResponse);
         return payResponse;
     }
 

@@ -84,7 +84,7 @@ public class AliPayStrategy extends PayStrategy {
     /**
      * 沙箱测试环境账号
      */
-    public static final String DEV_REQ_URL = "https://openapi.alipaydev.com/gateway.do";
+    public static final String DEV_REQ_URL = "https://openapi-sandbox.dl.alipaydev.com/gateway.do";
 
     protected final static DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
 
@@ -707,7 +707,7 @@ public class AliPayStrategy extends PayStrategy {
 
     /**
      * 获取对应的请求地址
-     *https://openapi.alipaydev.com/gateway.do
+     *https://openapi-sandbox.dl.alipaydev.com/gateway.do
      * @return 请求地址
      */
     public String getReqUrl(TransactionType transactionType,AliPayConfig payConfig) {
