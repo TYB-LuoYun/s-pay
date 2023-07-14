@@ -2,10 +2,10 @@ package com.dicomclub.payment.module.pay.service.alipay;
 
 import com.alibaba.fastjson.JSON;
 import com.alibaba.fastjson.JSONObject;
-import com.alipay.api.domain.AlipayTradeOrderSettleModel;
-import com.alipay.api.domain.OpenApiRoyaltyDetailInfoPojo;
-import com.alipay.api.domain.SettleExtendParams;
+import com.alipay.api.domain.*;
+import com.alipay.api.request.AlipayTradeRoyaltyRelationBindRequest;
 import com.alipay.api.response.AlipayTradeOrderSettleResponse;
+import com.alipay.api.response.AlipayTradeRoyaltyRelationBindResponse;
 import com.dicomclub.payment.exception.PayException;
 import com.dicomclub.payment.module.pay.common.ChannelStateRes;
 import com.dicomclub.payment.module.pay.common.TransactionType;
@@ -46,6 +46,7 @@ import com.dicomclub.payment.util.*;
 import com.dicomclub.payment.util.httpRequest.HttpRequestTemplate;
 import com.google.gson.FieldNamingPolicy;
 import com.google.gson.GsonBuilder;
+import lombok.Data;
 import lombok.extern.slf4j.Slf4j;
 import okhttp3.OkHttpClient;
 import okhttp3.logging.HttpLoggingInterceptor;
@@ -75,6 +76,7 @@ import java.util.stream.Collectors;
 @Slf4j
 @Component
 @Primary
+@Data
 public class AliPayStrategy extends PayStrategy {
 
     /**
@@ -101,7 +103,7 @@ public class AliPayStrategy extends PayStrategy {
     private AlipayAppService alipayAppService;
 
     @Autowired
-    private HttpRequestTemplate requestTemplate;
+    private HttpRequestTemplate requestTemplate = new HttpRequestTemplate();
 
     /**
      * 辅助api
@@ -325,7 +327,7 @@ public class AliPayStrategy extends PayStrategy {
         AliPayResponse aliPayResponse = new AliPayResponse();
         AliPayOrderQueryResponse.AlipayTradeQueryResponse response = retrofitResponse.body().getAlipayTradeQueryResponse();
         if (!response.getCode().equals(AliPayConstants.RESPONSE_CODE_SUCCESS)) {
-           aliPayResponse.setChannelState(ChannelState.UNKNOWN);
+           aliPayResponse.setChannelState(ChannelState.WAITING);
             aliPayResponse.setMsg(response.getMsg()+response.getSubMsg());
 //            throw new RuntimeException("【查询支付宝订单】code=" + response.getCode() + ", returnMsg=" + response.getMsg() + String.format("|%s|%s", response.getSubCode(), response.getSubMsg()));
 //            aliPayResponse
@@ -457,14 +459,31 @@ public class AliPayStrategy extends PayStrategy {
         } catch (IOException e) {
             e.printStackTrace();
         }
+
+
+
+        ChannelState channelState = ChannelState.WAITING;
+
         assert retrofitResponse != null;
         if (!retrofitResponse.isSuccessful()) {
-            throw new RuntimeException("【支付宝转账到银行卡】网络异常");
+            channelState = ChannelState.CONFIRM_FAIL;
+            ChannelStateRes build = ChannelStateRes.builder()
+                    .msg("【支付宝转账到银行卡】网络异常")
+                    .channelState(channelState)
+                    .build();
+            return TransferResponse.builder().channelStateRes(build).build();
         }
         assert retrofitResponse.body() != null;
         AliPayBankResponse.AlipayFundTransUniTransferResponse response = retrofitResponse.body().getAlipayFundTransUniTransferResponse();
         if (!response.getCode().equals(AliPayConstants.RESPONSE_CODE_SUCCESS)) {
-            throw new RuntimeException("【支付宝转账到银行卡】code=" + response.getCode() + ", returnMsg=" + response.getMsg());
+
+            channelState = ChannelState.CONFIRM_FAIL;
+            ChannelStateRes build = ChannelStateRes.builder()
+                    .msg(response.getMsg())
+                    .code(response.getCode())
+                    .channelState(channelState)
+                    .build();
+            return TransferResponse.builder().channelStateRes(build).build();
         }
 
 //        return TransferResponse.builder()
@@ -473,12 +492,28 @@ public class AliPayStrategy extends PayStrategy {
 //                .payFundOrderId(response.getPayRundOrderId())
 //                .status(response.getStatus())
 //                .build();
-        //todo
-        return null;
+        channelState = ChannelState.CONFIRM_SUCCESS;
+        return TransferResponse.builder().channelStateRes(ChannelStateRes.builder().channelState(channelState).build()).build();
     }
 
     @Override
     public TransferResponse transferQuery(TransferQueryRequest request, PayConfig payConfig) {
+        return TransferResponse.builder().channelStateRes(ChannelStateRes.waiting()).build();
+    }
+
+    @Override
+    public SettleResponse settle(SettleRequest settleRequest, PayConfig payConfig) {
+        return null;
+    }
+
+    /**
+     * 解冻 ; 调用分账接口后，需要解冻剩余资金时，调用本接口将剩余的分账金额全部解冻给本商户
+     *
+     * @param unfreezeRequest
+     * @param payConfig
+     */
+    @Override
+    public ChannelStateRes unfreeze(UnfreezeRequest unfreezeRequest, PayConfig payConfig) {
         return null;
     }
 
@@ -503,6 +538,9 @@ public class AliPayStrategy extends PayStrategy {
 
         model.setOutRequestNo(divisionRquest.getDivisionBatchNo()); //结算请求流水号，由商家自定义。32个字符以内，仅可包含字母、数字、下划线。需保证在商户端不重复。
         model.setTradeNo(divisionRquest.getOutTradeNo()); //支付宝订单号
+        if(divisionRquest.getOutTradeNo() == null){
+            throw new PayException("支付宝订单号必传");
+        }
 
 
         if(aliPayConfig.isPartner()){
@@ -551,7 +589,7 @@ public class AliPayStrategy extends PayStrategy {
         model.setExtendParams(settleExtendParams);
 
 
-        request.put("biz_content", JSON.toJSONString(model));
+        request.put("biz_content", JsonUtil.toJsonWithUnderscores(model));
 
          //设置签名
         setSign(request,aliPayConfig);
@@ -560,8 +598,8 @@ public class AliPayStrategy extends PayStrategy {
         if(log.isInfoEnabled()){
             log.info("订单：[{}], 支付宝分账请求：{}", divisionRquest.getOrderNo(), JSON.toJSONString(model));
         }
-        AlipayTradeOrderSettleResponse alipayResp = requestTemplate.postForObject(getReqUrl(AliTransactionType.DIVISION,aliPayConfig), request, AlipayTradeOrderSettleResponse.class);
-
+        JSONObject jsonObject = requestTemplate.postForObject(getReqUrl(AliTransactionType.DIVISION, aliPayConfig), request, JSONObject.class);
+        AlipayTradeOrderSettleResponse alipayResp = JsonUtil.toObject(jsonObject.getJSONObject("alipay_trade_order_settle_response").toJSONString(), AlipayTradeOrderSettleResponse.class);
         log.info("订单：[{}], 支付宝分账响应：{}", divisionRquest.getOrderNo(), alipayResp.getBody());
         DivisionResponse divisionResponse = new DivisionResponse();
 
@@ -577,21 +615,70 @@ public class AliPayStrategy extends PayStrategy {
         }
         channelStateRes.setChannelState(channelState);
         //异常：
+        divisionResponse.setChannelStateRes(channelStateRes);
         return divisionResponse;
     }
 
     @Override
     public DivisionResponse divisionQuery(DivisionQueryRquest divisionQueryRquest, PayConfig payConfig) {
-        return null;
+        return DivisionResponse.builder().channelStateRes(ChannelStateRes.waiting()).build();
     }
 
     @Override
     public ChannelStateRes divisionBind(DivisionReceiverBind divisionReceiverBind, PayConfig payConfig) {
-        return null;
+        AliPayConfig aliPayConfig = (AliPayConfig) payConfig;
+        //获取公共参数
+        Map<String, Object> request = getPublicParameters(aliPayConfig,AliTransactionType.BIND);
+//            AlipayTradeRoyaltyRelationBindRequest request = new AlipayTradeRoyaltyRelationBindRequest();
+        AlipayTradeRoyaltyRelationBindModel model = new AlipayTradeRoyaltyRelationBindModel();
+//            request.setBizModel(model);
+        model.setOutRequestNo(RandomUtil.getRandomStr());
+
+        //统一放置 isv接口必传信息
+        // TODO: 2023/4/17 0017
+//            AlipayKit.putApiIsvInfo(mchAppConfigContext, request, model);
+
+        RoyaltyEntity royaltyEntity = new RoyaltyEntity();
+
+        royaltyEntity.setType("loginName");
+        if(RegKit.isAlipayUserId(divisionReceiverBind.getAccountNo())){
+            royaltyEntity.setType("userId");
+        }
+        royaltyEntity.setAccount(divisionReceiverBind.getAccountNo());
+        royaltyEntity.setName(divisionReceiverBind.getAccountName());
+        royaltyEntity.setMemo(divisionReceiverBind.getRelationType().name()); //分账关系描述
+        model.setReceiverList(Arrays.asList(royaltyEntity));
+
+
+
+        request.put("biz_content", JsonUtil.toJsonWithUnderscores(model));
+
+        //设置签名
+        setSign(request,aliPayConfig);
+
+        JSONObject jsonObject = requestTemplate.postForObject(getReqUrl(AliTransactionType.BIND, aliPayConfig), request, JSONObject.class);
+        AlipayTradeRoyaltyRelationBindResponse alipayResp =  JsonUtil.toObject(jsonObject.getJSONObject("alipay_trade_royalty_relation_bind_response").toJSONString(), AlipayTradeRoyaltyRelationBindResponse.class);
+        ChannelState channelState =null;
+        if(alipayResp.isSuccess()){
+            channelState =ChannelState.CONFIRM_SUCCESS;
+            return ChannelStateRes.builder().channelState(channelState).build();
+        }
+
+
+        channelState =ChannelState.CONFIRM_FAIL;
+        return ChannelStateRes.builder()
+                .msg(alipayResp.getMsg()+alipayResp.getSubMsg())
+                .code(alipayResp.getCode()+alipayResp.getSubCode())
+                .channelState(channelState).build();
     }
 
     @Override
     public BillResponse downloadBill(BillRequest downloadBillRequest, PayConfig payConfig) {
+        return null;
+    }
+
+    @Override
+    public VirtualAccountApplyRes virtualAccountApply(VirtualAccountApplyReq virtualAccountApplyReq, PayConfig payConfig) {
         return null;
     }
 

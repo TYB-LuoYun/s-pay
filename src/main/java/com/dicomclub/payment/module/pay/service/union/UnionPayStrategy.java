@@ -320,6 +320,7 @@ public class UnionPayStrategy extends PayStrategy {
       if(!sign){
           throw new PayException("failure 银联验证签名失败");
       }
+    UnionPayResponse unionPayResponse = new UnionPayResponse();
       ChannelState channelState = ChannelState.WAITING;
       if (UnionPayConstants.OK_RESP_CODE.equals(response.getString(UnionPayConstants.param_respCode))) {
           String origRespCode = response.getString(UnionPayConstants.param_origRespCode);
@@ -327,10 +328,7 @@ public class UnionPayStrategy extends PayStrategy {
               //交易成功，更新商户订单状态
               channelState =ChannelState.CONFIRM_SUCCESS;
           }
-      }else{
-          throw  new PayException(response.getString(UnionPayConstants.param_respCode), response.getString(UnionPayConstants.param_respMsg));
       }
-    UnionPayResponse unionPayResponse = new UnionPayResponse();
     unionPayResponse.setChannelState(channelState);
     unionPayResponse.setOutTradeNo(response.getString(UnionPayConstants.param_queryId));
     unionPayResponse.setOrderNo(response.getString(UnionPayConstants.param_orderId));
@@ -417,6 +415,22 @@ public class UnionPayStrategy extends PayStrategy {
     return null;
   }
 
+  @Override
+  public SettleResponse settle(SettleRequest settleRequest, PayConfig payConfig) {
+    return null;
+  }
+
+  /**
+   * 解冻 ; 调用分账接口后，需要解冻剩余资金时，调用本接口将剩余的分账金额全部解冻给本商户
+   *
+   * @param unfreezeRequest
+   * @param payConfig
+   */
+  @Override
+  public ChannelStateRes unfreeze(UnfreezeRequest unfreezeRequest, PayConfig payConfig) {
+    return null;
+  }
+
   /**
    * 分账
    *
@@ -440,6 +454,11 @@ public class UnionPayStrategy extends PayStrategy {
 
   @Override
   public BillResponse downloadBill(BillRequest downloadBillRequest, PayConfig payConfig) {
+    return null;
+  }
+
+  @Override
+  public VirtualAccountApplyRes virtualAccountApply(VirtualAccountApplyReq virtualAccountApplyReq, PayConfig payConfig) {
     return null;
   }
 

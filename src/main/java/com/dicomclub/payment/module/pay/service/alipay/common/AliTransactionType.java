@@ -89,11 +89,9 @@ public enum AliTransactionType implements TransactionType {
     FTOKEN_QUERY("zoloz.authentication.customer.ftoken.query") ,
 
 
-    DIVISION("alipay.trade.order.settle") ;
+    DIVISION("alipay.trade.order.settle") ,
 
-
-
-
+    BIND("alipay.trade.royalty.relation.bind");
     private String method;
 
     AliTransactionType(String method) {

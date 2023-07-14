@@ -292,7 +292,6 @@ public class WxPayStrategy extends PayStrategy {
         ProfitSharingRequest request = new ProfitSharingRequest();
         request.setTransactionId(divisionRquest.getOutTradeNo());
         WxPayConfig wxPayConfig = (WxPayConfig) payConfig;
-
         request.setAppid(wxPayConfig.getAppId());
         // 特约商户
         if(wxPayConfig.isPartner()){
@@ -315,7 +314,8 @@ public class WxPayStrategy extends PayStrategy {
                 }
                 ProfitSharingReceiver receiver = new ProfitSharingReceiver();
                 // 0-个人， 1-商户  (目前仅支持服务商appI获取个人openId, 即： PERSONAL_OPENID， 不支持 PERSONAL_SUB_OPENID )
-                receiver.setType(record.getAccountType().name());
+                WxReceiverType wxReceiverType = WxReceiverType.getValid(record.getAccountType());
+                receiver.setType(wxReceiverType.name());
                 receiver.setAccount(record.getAccountNo());
                 receiver.setAmount(Long.valueOf(Util.conversionCentAmount(record.getDivisionAmount())));
                 receiver.setDescription(divisionRquest.getOrderNo() + "分账");
@@ -341,7 +341,8 @@ public class WxPayStrategy extends PayStrategy {
         WxPayConfig wxPayConfig = (WxPayConfig) payConfig;
         wxPayConfig.initLatestWxPlatCert();
         ProfitSharingReceiver profitSharingReceiver = new ProfitSharingReceiver();
-        profitSharingReceiver.setType(divisionReceiverBind.getAccountType().name());
+        WxReceiverType valid = WxReceiverType.getValid(divisionReceiverBind.getAccountType());
+        profitSharingReceiver.setType(valid.name());
         profitSharingReceiver.setAccount(divisionReceiverBind.getAccountNo());
         Certificate certificate = wxPayConfig.getWxPlatCert().getCertificate();
         profitSharingReceiver.setName(AntCertificationUtil.encryptToString(divisionReceiverBind.getAccountName(), certificate));
@@ -406,6 +407,11 @@ public class WxPayStrategy extends PayStrategy {
         }
 
         return billResponse;
+    }
+
+    @Override
+    public VirtualAccountApplyRes virtualAccountApply(VirtualAccountApplyReq virtualAccountApplyReq, PayConfig payConfig) {
+        return null;
     }
 
 
@@ -838,6 +844,41 @@ public class WxPayStrategy extends PayStrategy {
         }
         ChannelStateRes build = ChannelStateRes.builder().channelState(channelState).build();
         return TransferResponse.builder().channelStateRes(build).build();
+    }
+
+    @Override
+    public SettleResponse settle(SettleRequest settleRequest, PayConfig payConfig) {
+        return null;
+    }
+
+    /**
+     * 解冻 ; 调用分账接口后，需要解冻剩余资金时，调用本接口将剩余的分账金额全部解冻给本商户
+     *
+     * @param unfreezeRequest
+     * @param payConfig
+     */
+    @Override
+    public ChannelStateRes unfreeze(UnfreezeRequest unfreezeRequest, PayConfig payConfig) {
+        ProfitSharingRequest request = new ProfitSharingRequest();
+        request.setTransactionId(unfreezeRequest.getOutTradeNo());
+        WxPayConfig wxPayConfig = (WxPayConfig) payConfig;
+        request.setAppid(wxPayConfig.getAppId());
+        // 特约商户
+        if(wxPayConfig.isPartner()){
+            request.setSubMchId(wxPayConfig.getSubMchId());
+        }
+        request.setOutOrderNo(unfreezeRequest.getDivisionBatchNo()); //取到批次号
+
+        JSONObject jsonObject = null;
+        request.setDescription("解冻全部剩余资金");
+        jsonObject = assistService.doExecute(JsonUtil.toJsonCustom(request), WxTransactionType.DIVISION_FINISH, wxPayConfig);
+
+
+        ChannelState state= ChannelState.WAITING;
+        if("FINISHED".equals(jsonObject.get("state"))){
+            state= ChannelState.CONFIRM_SUCCESS;
+        }
+        return ChannelStateRes.builder().channelState(state).data(jsonObject).build();
     }
 
 

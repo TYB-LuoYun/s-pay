@@ -72,6 +72,21 @@ public abstract class PayStrategy {
 
     public abstract TransferResponse transferQuery(TransferQueryRequest request,PayConfig payConfig);
 
+
+    /**
+     * 结算，确认收货，交易款结算给卖家
+     * @param settleRequest
+     * @param payConfig
+     * @return
+     */
+    public abstract SettleResponse  settle(SettleRequest settleRequest,PayConfig payConfig);
+
+
+    /**
+     * 解冻 ; 调用分账接口后，需要解冻剩余资金时，调用本接口将剩余的分账金额全部解冻给本商户
+     */
+    public abstract ChannelStateRes unfreeze(UnfreezeRequest unfreezeRequest,PayConfig payConfig);
+
     /**
      * 分账
      */
@@ -86,6 +101,10 @@ public abstract class PayStrategy {
 
 
     public abstract BillResponse downloadBill(BillRequest downloadBillRequest , PayConfig payConfig);
+
+
+
+    public abstract VirtualAccountApplyRes virtualAccountApply(VirtualAccountApplyReq virtualAccountApplyReq , PayConfig payConfig);
 
 
 

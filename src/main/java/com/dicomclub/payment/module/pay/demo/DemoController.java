@@ -3,16 +3,22 @@ package com.dicomclub.payment.module.pay.demo;
 import com.dicomclub.payment.module.pay.config.AliPayConfig;
 import com.dicomclub.payment.module.pay.config.UnionPayConfig;
 import com.dicomclub.payment.module.pay.enums.PayChannel;
-import com.dicomclub.payment.module.pay.model.OrderQueryRequest;
+import com.dicomclub.payment.module.pay.enums.WxReceiverType;
+import com.dicomclub.payment.module.pay.model.DivisionResponse;
+import com.dicomclub.payment.module.pay.model.DivisionRquest;
 import com.dicomclub.payment.module.pay.model.PayResponse;
 import com.dicomclub.payment.module.pay.model.alipay.AliPayRequest;
 import com.dicomclub.payment.module.pay.model.union.UnionPayRequest;
+import com.dicomclub.payment.module.pay.model.wxpay.DivisionReceiver;
 import com.dicomclub.payment.module.pay.service.PayStrategy;
 import com.dicomclub.payment.module.pay.service.alipay.AliPayStrategy;
 import com.dicomclub.payment.module.pay.service.union.UnionPayStrategy;
 import com.dicomclub.payment.util.httpRequest.CertStoreType;
+import com.dicomclub.payment.util.httpRequest.HttpRequestTemplate;
 
 import java.math.BigDecimal;
+import java.util.ArrayList;
+import java.util.UUID;
 
 /**
  * @author ftm
@@ -57,6 +63,12 @@ public class DemoController {
         System.out.println(pay.getPayUrl());
     }
 
+    public static void main(String[] args){
+        testAliPayCert();
+    }
+
+
+
 
     /**
      * 证书模式
@@ -73,19 +85,52 @@ public class DemoController {
         config.setCertStoreType(CertStoreType.PATH);
         config.setUseCert(true);
         config.setSandbox(true);
-        aliPayRequest.setOrderName("name");
-        aliPayRequest.setOrderNo("583hcy3hjud3hncisw3j");
-        aliPayRequest.setOrderAmount(BigDecimal.valueOf(56));
 
-        aliPayRequest.setPayChannel(PayChannel.ALIPAY_PC);
 
-        PayResponse pay = payStrategy.pay(aliPayRequest, config);
-        System.out.println(pay.getPayUrl());
+
+
+        /**
+         * 支付
+         */
+//        aliPayRequest.setOrderName("name");
+//        aliPayRequest.setOrderNo("3383hcy3hjud3hncisw3j");
+//        aliPayRequest.setOrderAmount(BigDecimal.valueOf(56));
+//        aliPayRequest.setPayChannel(PayChannel.ALIPAY_PC);
+//        PayResponse pay = payStrategy.pay(aliPayRequest, config);
+//        System.out.println(pay.getPayUrl());
+        /**
+         * 绑定分账关系
+         */
+//        DivisionReceiverBind bind = new DivisionReceiverBind();
+//        bind.setAccountType(WxReceiverType.PERSONAL_OPENID);
+//        bind.setAccountNo("2088722003464264");
+////        bind.setAccountName("谭洋波");
+//        bind.setCustomRelation("3333");
+//        bind.setRelationType(RelationType.PARTNER);
+//        ChannelStateRes channelStateRes = payStrategy.divisionBind(bind, config);
+
+//        System.out.println(channelStateRes);
+
+        /**
+         * 分账
+         */
+        DivisionRquest divisionRquest = new DivisionRquest();
+        divisionRquest.setDivisionBatchNo(UUID.randomUUID().toString().replaceAll("-","" ));
+        divisionRquest.setOrderNo("P1671042493066346497");
+        divisionRquest.setOutTradeNo("2023062022001464260500230447");
+        DivisionReceiver divisionReceiver = new DivisionReceiver();
+        divisionReceiver.setDivisionAmount(BigDecimal.valueOf(32));
+        divisionReceiver.setAccountNo("2088722003464264");
+        divisionReceiver.setAccountType(WxReceiverType.PERSONAL_OPENID.name());
+        ArrayList<DivisionReceiver> divisionReceivers = new ArrayList<>();
+        divisionReceivers.add(divisionReceiver);
+        divisionRquest.setReceivers(divisionReceivers );
+        payStrategy.setRequestTemplate(new HttpRequestTemplate());
+        DivisionResponse division = payStrategy.division(divisionRquest, config);
+        System.out.println(division);
     }
 
-    public static void main(String[] args){
-        testUnionPay();
-    }
+
 
     public static void testUnionPay(){
         PayStrategy payStrategy = new UnionPayStrategy();

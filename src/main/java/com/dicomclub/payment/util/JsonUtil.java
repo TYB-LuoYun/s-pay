@@ -53,8 +53,8 @@ public class JsonUtil {
     public static <T> T toObject(String json, Class<T> valueType) {
         Objects.requireNonNull(json, "json is null.");
         Objects.requireNonNull(valueType, "value type is null.");
-
         try {
+            gsonBuilder.setFieldNamingPolicy(FieldNamingPolicy.LOWER_CASE_WITH_UNDERSCORES);
             return gsonBuilder.create().fromJson(json,valueType );
         } catch (Exception e) {
             throw new IllegalStateException("fail to convert [" + json + "] to [" + valueType + "].", e);

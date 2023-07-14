@@ -10,6 +10,9 @@ import lombok.Getter;
 @Getter
 @AllArgsConstructor
 public enum PayChannel {
+
+
+
     ALIPAY_PC("alipay_pc", PayType.ALIPAY, "支付宝pc"),
     ALIPAY_APP("alipay_app", PayType.ALIPAY, "支付宝app"),
     /**
@@ -39,7 +42,6 @@ public enum PayChannel {
     WXPAY_MICRO("MICRO", PayType.WX, "微信付款码支付"),
 
 
-
     UNION_WEB_GATEWAY("union_pc_gateway", PayType.UNION,"银联PC/平板在线网关支付"),
 //  企业网银(B2B)过时了，我就不列了
 
@@ -54,7 +56,28 @@ public enum PayChannel {
      */
     UNION_QRCODE("union_qrcode", PayType.UNION,"申码，扫码付-主扫场景"),
 
-    UNION_CONSUME_BARCODE("union_consume_barcode", PayType.UNION,"消费(被扫场景)")
+    UNION_CONSUME_BARCODE("union_consume_barcode", PayType.UNION,"消费(被扫场景)"),
+
+
+
+
+
+    NANJING_BALANCE("101",PayType.NANJING,"余额支付"),
+    NANJING_BANKCARD("102",PayType.NANJING,"银行卡支付"),
+    NANJING_BALANCE_ENSURE("201",PayType.NANJING,"余额担保支付"),
+    NANJING_BANKCARD_ENSURE("202",PayType.NANJING,"银行卡担保支付"),
+    NANJING_FORCE("300",PayType.NANJING,"强制支付"),
+    NANJING_WX("500",PayType.NANJING,"微信支付")
+
+
+
+
+
+
+
+
+
+
 
 
 //    UNION_MOBILE_CASHIER_DESK("UNION_MOBILE_CASHIER_DESK",UNION,"银联手机线上统一收银台")

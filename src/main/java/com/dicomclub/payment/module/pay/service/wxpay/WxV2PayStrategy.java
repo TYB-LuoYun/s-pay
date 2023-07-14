@@ -229,8 +229,6 @@ public class WxV2PayStrategy extends PayStrategy {
         if (!response.getResultCode().equals(WxPayConstants.SUCCESS)) {
             throw new RuntimeException("【微信订单查询】resultCode != SUCCESS, err_code = " + response.getErrCode() + ", err_code_des=" + response.getErrCodeDes());
         }
-
-
         WxPayResponse wxPayResponse = new WxPayResponse();
         wxPayResponse.setChannelState(WxTradeStatusEnum.findByName(response.getTradeState()).getChannelState());
         wxPayResponse.setMsg(response.getTradeStateDesc());
@@ -280,6 +278,22 @@ public class WxV2PayStrategy extends PayStrategy {
         return null;
     }
 
+    @Override
+    public SettleResponse settle(SettleRequest settleRequest, PayConfig payConfig) {
+        return null;
+    }
+
+    /**
+     * 解冻 ; 调用分账接口后，需要解冻剩余资金时，调用本接口将剩余的分账金额全部解冻给本商户
+     *
+     * @param unfreezeRequest
+     * @param payConfig
+     */
+    @Override
+    public ChannelStateRes unfreeze(UnfreezeRequest unfreezeRequest, PayConfig payConfig) {
+        return null;
+    }
+
     /**
      * 分账
      *
@@ -303,6 +317,11 @@ public class WxV2PayStrategy extends PayStrategy {
 
     @Override
     public BillResponse downloadBill(BillRequest downloadBillRequest, PayConfig payConfig) {
+        return null;
+    }
+
+    @Override
+    public VirtualAccountApplyRes virtualAccountApply(VirtualAccountApplyReq virtualAccountApplyReq, PayConfig payConfig) {
         return null;
     }
 

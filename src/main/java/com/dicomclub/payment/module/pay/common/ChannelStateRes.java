@@ -26,6 +26,12 @@ public class ChannelStateRes {
         return ChannelStateRes.builder().channelState(ChannelState.CONFIRM_SUCCESS).data(data).build();
     }
 
+
+    public static ChannelStateRes waiting() {
+        return ChannelStateRes.builder().channelState(ChannelState.WAITING).build();
+    }
+
+
     public static ChannelStateRes fail(String msg) {
         return ChannelStateRes.builder().channelState(ChannelState.CONFIRM_FAIL).data(null).msg(msg).build();
     }

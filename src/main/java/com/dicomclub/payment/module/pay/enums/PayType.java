@@ -10,7 +10,9 @@ public enum PayType {
 
     WX("wxpay", "微信"),
 
-    UNION("unionpay","银联")
+    UNION("unionpay","银联"),
+
+    NANJING("nanjing","南京银行")
     ;
 
     private String code;
