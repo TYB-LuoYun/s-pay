@@ -12,7 +12,7 @@ public enum PayType {
 
     UNION("unionpay","银联"),
 
-    NANJING("nanjing","南京银行")
+    NANJING("huifu","南京银行")
     ;
 
     private String code;

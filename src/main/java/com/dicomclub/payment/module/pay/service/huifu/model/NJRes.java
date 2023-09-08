@@ -1,4 +1,4 @@
-package com.dicomclub.payment.module.pay.service.nanjing.model;
+package com.dicomclub.payment.module.pay.service.huifu.model;
 
 import lombok.Data;
 

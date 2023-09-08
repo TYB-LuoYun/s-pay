@@ -8,6 +8,8 @@ import com.dicomclub.payment.module.pay.model.*;
 import com.dicomclub.payment.module.pay.model.wxpay.BillResponse;
 import com.dicomclub.payment.module.pay.model.wxpay.DivisionReceiverBind;
 import com.dicomclub.payment.module.pay.model.wxpay.BillRequest;
+import com.dicomclub.payment.module.pay.service.huifu.model.FundUserOpenReq;
+import com.dicomclub.payment.module.pay.service.huifu.model.FundUserOpenRes;
 import net.glxn.qrgen.core.image.ImageType;
 import net.glxn.qrgen.javase.QRCode;
 import org.apache.http.HttpEntity;
@@ -104,7 +106,10 @@ public abstract class PayStrategy {
 
 
 
-    public abstract VirtualAccountApplyRes virtualAccountApply(VirtualAccountApplyReq virtualAccountApplyReq , PayConfig payConfig);
+    public abstract FundUserOpenRes fundUserOpen(FundUserOpenReq fundUserOpenReq , PayConfig payConfig);
+
+
+
 
 
 

@@ -1,7 +1,5 @@
-package com.dicomclub.payment.module.pay.service.nanjing;
+package com.dicomclub.payment.module.pay.service.huifu;
 
-import com.alibaba.fastjson.JSON;
-import com.dicomclub.payment.common.utils.HttpClientUtil;
 import com.dicomclub.payment.module.pay.common.ChannelStateRes;
 import com.dicomclub.payment.module.pay.config.NjPayConfig;
 import com.dicomclub.payment.module.pay.config.PayConfig;
@@ -10,8 +8,9 @@ import com.dicomclub.payment.module.pay.model.wxpay.BillRequest;
 import com.dicomclub.payment.module.pay.model.wxpay.BillResponse;
 import com.dicomclub.payment.module.pay.model.wxpay.DivisionReceiverBind;
 import com.dicomclub.payment.module.pay.service.PayStrategy;
-import com.dicomclub.payment.module.pay.service.nanjing.model.NJReq;
-import com.dicomclub.payment.module.pay.service.nanjing.model.NJRes;
+import com.dicomclub.payment.module.pay.service.huifu.model.FundUserOpenReq;
+import com.dicomclub.payment.module.pay.service.huifu.model.FundUserOpenRes;
+import com.dicomclub.payment.module.pay.service.huifu.model.NJReq;
 import com.dicomclub.payment.util.DateUtils;
 import lombok.Data;
 import lombok.extern.slf4j.Slf4j;
@@ -19,6 +18,7 @@ import org.springframework.context.annotation.Primary;
 import org.springframework.stereotype.Component;
 
 import javax.servlet.http.HttpServletRequest;
+import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.HashMap;
 
@@ -30,7 +30,7 @@ import java.util.HashMap;
 @Component
 @Primary
 @Data
-public class NanjingPayStrategy extends PayStrategy {
+public class HuifuPayStrategy extends PayStrategy {
 
     /**
      * 订单预支付
@@ -182,12 +182,12 @@ public class NanjingPayStrategy extends PayStrategy {
         return null;
     }
 
-    @Override
-    public VirtualAccountApplyRes virtualAccountApply(VirtualAccountApplyReq virtualAccountApplyReq, PayConfig payConfig) {
 
-        VirtualAccountApplyRes res = new VirtualAccountApplyRes();
-        res.setChannelStateRes(ChannelStateRes.waiting());
-        return res;
+
+    @Override
+    public FundUserOpenRes fundUserOpen(FundUserOpenReq fundUserOpenReq,PayConfig payConfig){
+
+        return null;
     }
 
     private NJReq getCommonParam(NjPayConfig payConfig) {

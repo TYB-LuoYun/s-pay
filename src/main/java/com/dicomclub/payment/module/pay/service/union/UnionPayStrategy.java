@@ -18,6 +18,8 @@ import com.dicomclub.payment.module.pay.model.wxpay.BillResponse;
 import com.dicomclub.payment.module.pay.model.wxpay.DivisionReceiverBind;
 import com.dicomclub.payment.module.pay.model.wxpay.BillRequest;
 import com.dicomclub.payment.module.pay.service.PayStrategy;
+import com.dicomclub.payment.module.pay.service.huifu.model.FundUserOpenReq;
+import com.dicomclub.payment.module.pay.service.huifu.model.FundUserOpenRes;
 import com.dicomclub.payment.module.pay.service.union.common.OrderParaStructure;
 import com.dicomclub.payment.module.pay.service.union.common.UnionTransactionType;
 import com.dicomclub.payment.module.pay.service.union.common.sign.CertDescriptor;
@@ -458,9 +460,11 @@ public class UnionPayStrategy extends PayStrategy {
   }
 
   @Override
-  public VirtualAccountApplyRes virtualAccountApply(VirtualAccountApplyReq virtualAccountApplyReq, PayConfig payConfig) {
+  public FundUserOpenRes fundUserOpen(FundUserOpenReq fundUserOpenReq, PayConfig payConfig) {
     return null;
   }
+
+
 
 
   private PayResponse buildPayResponse(Map<String, Object> dataMap, UnionPayResponse payResponse) {

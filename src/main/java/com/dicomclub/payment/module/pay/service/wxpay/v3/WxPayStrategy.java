@@ -19,6 +19,8 @@ import com.dicomclub.payment.module.pay.model.common.BillType;
 import com.dicomclub.payment.module.pay.model.wxpay.*;
 import com.dicomclub.payment.module.pay.model.wxpay.request.WxTransferDetail;
 import com.dicomclub.payment.module.pay.service.PayStrategy;
+import com.dicomclub.payment.module.pay.service.huifu.model.FundUserOpenReq;
+import com.dicomclub.payment.module.pay.service.huifu.model.FundUserOpenRes;
 import com.dicomclub.payment.module.pay.service.union.common.OrderParaStructure;
 import com.dicomclub.payment.module.pay.service.union.common.Util;
 import com.dicomclub.payment.module.pay.service.union.common.sign.SignTextUtils;
@@ -410,7 +412,7 @@ public class WxPayStrategy extends PayStrategy {
     }
 
     @Override
-    public VirtualAccountApplyRes virtualAccountApply(VirtualAccountApplyReq virtualAccountApplyReq, PayConfig payConfig) {
+    public FundUserOpenRes fundUserOpen(FundUserOpenReq fundUserOpenReq, PayConfig payConfig) {
         return null;
     }
 

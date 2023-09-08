@@ -38,6 +38,8 @@ import com.dicomclub.payment.module.pay.service.alipay.channel.AlipayQRCodeServi
 import com.dicomclub.payment.module.pay.service.alipay.common.AliPaySignature;
 import com.dicomclub.payment.module.pay.service.alipay.common.AliTransactionType;
 import com.dicomclub.payment.module.pay.service.alipay.common.RegKit;
+import com.dicomclub.payment.module.pay.service.huifu.model.FundUserOpenReq;
+import com.dicomclub.payment.module.pay.service.huifu.model.FundUserOpenRes;
 import com.dicomclub.payment.module.pay.service.union.common.OrderParaStructure;
 import com.dicomclub.payment.module.pay.service.union.common.sign.SignTextUtils;
 import com.dicomclub.payment.module.pay.service.union.common.sign.SignUtils;
@@ -678,7 +680,7 @@ public class AliPayStrategy extends PayStrategy {
     }
 
     @Override
-    public VirtualAccountApplyRes virtualAccountApply(VirtualAccountApplyReq virtualAccountApplyReq, PayConfig payConfig) {
+    public FundUserOpenRes fundUserOpen(FundUserOpenReq fundUserOpenReq, PayConfig payConfig) {
         return null;
     }
 

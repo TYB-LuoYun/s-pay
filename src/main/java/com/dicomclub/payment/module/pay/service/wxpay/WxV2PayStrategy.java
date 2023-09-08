@@ -15,6 +15,8 @@ import com.dicomclub.payment.module.pay.model.wxpay.response.WxOrderQueryRespons
 import com.dicomclub.payment.module.pay.model.wxpay.response.WxPayAsyncResponse;
 import com.dicomclub.payment.module.pay.model.wxpay.response.WxPaySyncResponse;
 import com.dicomclub.payment.module.pay.service.PayStrategy;
+import com.dicomclub.payment.module.pay.service.huifu.model.FundUserOpenReq;
+import com.dicomclub.payment.module.pay.service.huifu.model.FundUserOpenRes;
 import com.dicomclub.payment.module.pay.service.wxpay.v2.channel.WxV2PayMicroService;
 import com.dicomclub.payment.module.pay.service.wxpay.v2.common.WxPaySignature;
 import com.dicomclub.payment.util.MapUtil;
@@ -321,7 +323,7 @@ public class WxV2PayStrategy extends PayStrategy {
     }
 
     @Override
-    public VirtualAccountApplyRes virtualAccountApply(VirtualAccountApplyReq virtualAccountApplyReq, PayConfig payConfig) {
+    public FundUserOpenRes fundUserOpen(FundUserOpenReq fundUserOpenReq, PayConfig payConfig) {
         return null;
     }
 
