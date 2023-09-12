@@ -152,7 +152,7 @@ public class AliPayStrategy extends PayStrategy {
         //优先使用PayRequest.returnUrl
         aliPayRequest.setReturnUrl(StringUtils.isEmpty(request.getReturnUrl()) ? aliPayConfig.getReturnUrl() : request.getReturnUrl());
         aliPayRequest.setTimestamp(LocalDateTime.now().format(formatter));
-        aliPayRequest.setVersion("1.0");
+//        aliPayRequest.setVersion("1.0");
         // 剔除空格、制表符、换行
         aliPayRequest.setBizContent(JsonUtil.toJson(requestParams).replaceAll("\\s*", ""));
 //        aliPayRequest.setAlipaySdk( "alipay-sdk-java-dynamicVersionNo");

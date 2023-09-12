@@ -19,6 +19,7 @@ import java.security.interfaces.RSAPrivateKey;
 import java.security.interfaces.RSAPublicKey;
 import java.security.spec.PKCS8EncodedKeySpec;
 import java.security.spec.X509EncodedKeySpec;
+import java.text.SimpleDateFormat;
 import java.util.*;
 
 /**
@@ -42,10 +43,15 @@ public class RSAUtil {
      */
     private static final int KEY_SIZE = 1024;
 
+    private static final SimpleDateFormat simpleDateFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+
+
+
     /**
      * 生成密钥对
      */
     public static Map<String, String> initKey() throws Exception {
+
         KeyPairGenerator keygen = KeyPairGenerator.getInstance(RSA_KEY_ALGORITHM);
         SecureRandom secrand = new SecureRandom();
         /**
@@ -407,7 +413,9 @@ public class RSAUtil {
                 sb.append(item.getKey());
                 if (item.getValue() instanceof String) {
                     sb.append(item.getValue());
-                } else {
+                }else if(item.getValue() instanceof Date) {
+                    sb.append(simpleDateFormat.format(item.getValue()));
+                }else {
                     sb.append(JSON.toJSONString(item.getValue()).replaceAll("(\")","" ));
                 }
             }

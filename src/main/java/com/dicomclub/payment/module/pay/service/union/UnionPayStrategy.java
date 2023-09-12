@@ -336,7 +336,7 @@ public class UnionPayStrategy extends PayStrategy {
     unionPayResponse.setOrderNo(response.getString(UnionPayConstants.param_orderId));
     unionPayResponse.setMsg(response.getString(UnionPayConstants.param_origRespMsg));
     unionPayResponse.setFinishTime(response.getString(UnionPayConstants.param_txnTime));
-      return unionPayResponse;
+    return unionPayResponse;
   }
 
   /**
