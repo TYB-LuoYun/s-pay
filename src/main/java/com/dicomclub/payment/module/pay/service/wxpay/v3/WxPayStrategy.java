@@ -406,6 +406,7 @@ public class WxPayStrategy extends PayStrategy {
                 }
             }
             billResponse.setInputStream(inputStream);
+            billResponse.setBillDataType(BillDataType.FILE_STEAM);
         }
 
         return billResponse;

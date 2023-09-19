@@ -99,4 +99,10 @@ public interface AliPayConstants {
     String TRADE_CLOSED = "TRADE_CLOSED";
     String SIGN = "sign";
     String ALIPAY_CERT_SN_FIELD = "alipay_cert_sn";
+
+
+     String QUERY_OPTIONS = "query_options";
+     String OUT_REQUEST_NO = "out_request_no";
+
+    String BIZ_CONTENT = "biz_content";
 }

@@ -6,7 +6,9 @@ import com.alipay.api.domain.*;
 import com.alipay.api.request.AlipayTradeRoyaltyRelationBindRequest;
 import com.alipay.api.response.AlipayTradeOrderSettleResponse;
 import com.alipay.api.response.AlipayTradeRoyaltyRelationBindResponse;
+import com.dicomclub.payment.exception.PayErrorException;
 import com.dicomclub.payment.exception.PayException;
+import com.dicomclub.payment.exception.WxPayError;
 import com.dicomclub.payment.module.pay.common.ChannelStateRes;
 import com.dicomclub.payment.module.pay.common.TransactionType;
 import com.dicomclub.payment.module.pay.config.AliPayConfig;
@@ -43,16 +45,21 @@ import com.dicomclub.payment.module.pay.service.huifu.model.FundUserOpenRes;
 import com.dicomclub.payment.module.pay.service.union.common.OrderParaStructure;
 import com.dicomclub.payment.module.pay.service.union.common.sign.SignTextUtils;
 import com.dicomclub.payment.module.pay.service.union.common.sign.SignUtils;
+import com.dicomclub.payment.module.pay.service.wxpay.v3.common.WxConst;
 import com.dicomclub.payment.module.pay.service.wxpay.v3.service.WxPayAssistService;
 import com.dicomclub.payment.util.*;
-import com.dicomclub.payment.util.httpRequest.HttpRequestTemplate;
+import com.dicomclub.payment.util.httpRequest.*;
 import com.google.gson.FieldNamingPolicy;
 import com.google.gson.GsonBuilder;
 import lombok.Data;
+import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
 import okhttp3.OkHttpClient;
 import okhttp3.logging.HttpLoggingInterceptor;
+import org.apache.commons.io.IOUtils;
 import org.apache.commons.lang3.StringUtils;
+import org.apache.http.HttpEntity;
+import org.apache.http.entity.ContentType;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Primary;
 import org.springframework.stereotype.Component;
@@ -63,6 +70,7 @@ import retrofit2.converter.gson.GsonConverterFactory;
 
 import javax.servlet.http.HttpServletRequest;
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.UnsupportedEncodingException;
 import java.math.BigDecimal;
 import java.net.URLDecoder;
@@ -70,6 +78,8 @@ import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
 import java.util.stream.Collectors;
+
+import static com.dicomclub.payment.module.pay.constants.AliPayConstants.BIZ_CONTENT;
 
 /**
  * @author ftm
@@ -152,7 +162,7 @@ public class AliPayStrategy extends PayStrategy {
         //优先使用PayRequest.returnUrl
         aliPayRequest.setReturnUrl(StringUtils.isEmpty(request.getReturnUrl()) ? aliPayConfig.getReturnUrl() : request.getReturnUrl());
         aliPayRequest.setTimestamp(LocalDateTime.now().format(formatter));
-//        aliPayRequest.setVersion("1.0");
+        aliPayRequest.setVersion("1.0");
         // 剔除空格、制表符、换行
         aliPayRequest.setBizContent(JsonUtil.toJson(requestParams).replaceAll("\\s*", ""));
 //        aliPayRequest.setAlipaySdk( "alipay-sdk-java-dynamicVersionNo");
@@ -399,11 +409,24 @@ public class AliPayStrategy extends PayStrategy {
             throw new RuntimeException("【支付宝退款】code=" + response.getCode() + ", returnMsg=" + response.getMsg() + String.format("|%s|%s", response.getSubCode(), response.getSubMsg()));
         }
 
-        return RefundResponse.builder()
+        RefundResponse build = RefundResponse.builder()
                 .outRefundNo(response.getTradeNo())
                 .refundAmount(response.getRefundFee())
                 .refundNo(request.getRefundNo())
                 .build();
+        ChannelState channelState = ChannelState.WAITING;
+        ChannelStateRes res = new ChannelStateRes();
+        if(StringUtils.isEmpty(response.getSubCode())){
+            channelState = ChannelState.CONFIRM_SUCCESS;
+        }else{
+            channelState = ChannelState.CONFIRM_FAIL;
+        }
+        res.setChannelState(channelState);
+        res.setCode(response.getSubCode());
+        res.setMsg(response.getSubMsg());
+        build.setChannelStateRes(res);
+        build.setFinishTime(response.getGmtRefundPay());
+        return build;
     }
 
     /**
@@ -414,7 +437,47 @@ public class AliPayStrategy extends PayStrategy {
      */
     @Override
     public RefundResponse refundQuery(RefundQueryRequest refundNo, PayConfig payConfig) {
-        return null;
+        AliPayConfig aliPayConfig =(AliPayConfig) payConfig;
+        //获取公共参数
+        Map<String, Object> parameters = getPublicParameters(aliPayConfig,AliTransactionType.REFUNDQUERY);
+        // TODO: 2023-09-13 isv信息，暂时不做 
+//        setAppAuthToken(parameters, refundOrder.getAttrs());
+        Map<String, Object> bizContent = new TreeMap<>();
+        bizContent.put("out_trade_no", refundNo.getOrderNo());
+        bizContent.put("trade_no", refundNo.getOutOrderNo());
+        OrderParaStructure.loadParameters(bizContent, AliPayConstants.OUT_REQUEST_NO, refundNo.getRefundNo());
+        //设置请求参数的集合
+        parameters.put(BIZ_CONTENT, JSON.toJSONString(bizContent));
+        //设置签名
+        setSign(parameters,aliPayConfig);
+        JSONObject res  = requestTemplate.getForObject(getReqUrl(AliTransactionType.REFUNDQUERY, aliPayConfig) + "?" + UriVariables.getMapToParameters(parameters), JSONObject.class);
+        JSONObject response = res.getJSONObject("alipay_trade_fastpay_refund_query_response");
+        if (!response.getString("code").equals(AliPayConstants.RESPONSE_CODE_SUCCESS)) {
+            throw new RuntimeException("【支付宝退款查询】code=" + response.getString("code")+ ", returnMsg=" + response.getString("msg") + String.format("|%s|%s", response.getString("sub_code"), response.getString("sub_msg")));
+        }
+
+        RefundResponse build = RefundResponse.builder()
+                .orderNo(refundNo.getOrderNo())
+                .refundNo(refundNo.getRefundNo())
+                .payType(PayType.ALIPAY).build();
+
+        ChannelStateRes channelRetMsg = new ChannelStateRes();
+
+        // 调用成功 & 金额相等  （传入不存在的outRequestNo支付宝仍然返回响应成功只是数据不存在， 调用isSuccess() 仍是成功, 此处需判断金额是否相等）
+        Double channelRefundAmount = response.getString("refund_amount") == null ? null : Double.parseDouble( response.getString("refund_amount"));
+        build.setRefundAmount(channelRefundAmount);
+        if(StringUtils.isEmpty(response.getString("sub_code"))&&"REFUND_SUCCESS".equals(response.getString("refund_status")) ){
+            channelRetMsg.setChannelState(ChannelState.CONFIRM_SUCCESS);
+        }else{
+            channelRetMsg.setChannelState(ChannelState.WAITING); //认为是处理中
+        }
+        channelRetMsg.setMsg(response.getString("sub_msg"));
+        channelRetMsg.setCode(response.getString("sub_code"));
+        channelRetMsg.setData(response);
+        build.setChannelStateRes(channelRetMsg);
+        build.setFinishTime(response.getString("gmt_refund_pay"));
+        build.setOutRefundNo(response.getString("trade_no"));
+        return build;
     }
 
     /**
@@ -497,6 +560,8 @@ public class AliPayStrategy extends PayStrategy {
         channelState = ChannelState.CONFIRM_SUCCESS;
         return TransferResponse.builder().channelStateRes(ChannelStateRes.builder().channelState(channelState).build()).build();
     }
+
+
 
     @Override
     public TransferResponse transferQuery(TransferQueryRequest request, PayConfig payConfig) {
@@ -674,9 +739,58 @@ public class AliPayStrategy extends PayStrategy {
                 .channelState(channelState).build();
     }
 
+    /**
+     * 下载对账单
+     *
+     * @param   账单时间：日账单格式为yyyy-MM-dd，月账单格式为yyyy-MM。
+     * @param  账单类型，商户通过接口或商户经开放平台授权后其所属服务商通过接口可以获取以下账单类型：trade、signcustomer；trade指商户基于支付宝交易收单的业务账单；signcustomer是指基于商户支付宝余额收入及支出等资金变动的帐务账单；
+     * @return 返回支付方下载对账单的结果
+     */
     @Override
     public BillResponse downloadBill(BillRequest downloadBillRequest, PayConfig payConfig) {
-        return null;
+        AliPayConfig aliPayConfig = (AliPayConfig) payConfig;
+        //获取公共参数
+        Map<String, Object> parameters = getPublicParameters(aliPayConfig,AliTransactionType.DOWNLOADBILL);
+
+        Map<String, Object> bizContent = new TreeMap<>();
+        bizContent.put("bill_type", downloadBillRequest.getBillType().getType());
+        //目前只支持日账单
+        bizContent.put("bill_date", DateUtils.formatDate(downloadBillRequest.getBillDate(), downloadBillRequest.getBillType().getDatePattern()));
+        //设置请求参数的集合
+        final String bizContentStr = JSON.toJSONString(bizContent);
+        parameters.put(BIZ_CONTENT, bizContentStr);
+        //设置签名
+        setSign(parameters,aliPayConfig);
+        Map<String, String> bizContentMap = new HashMap<String, String>(1);
+        parameters.put(BIZ_CONTENT, bizContentStr);
+        JSONObject jsonObject = requestTemplate.postForObject(getReqUrl(AliTransactionType.DOWNLOADBILL, aliPayConfig) + "?" + UriVariables.getMapToParameters(parameters), bizContentMap, JSONObject.class);
+        JSONObject queryResponse = jsonObject.getJSONObject("alipay_data_dataservice_bill_downloadurl_query_response");
+        if (!queryResponse.getString("code").equals(AliPayConstants.RESPONSE_CODE_SUCCESS)) {
+            throw new RuntimeException("【支付宝下载账单】code=" + queryResponse.getString("code") + ", returnMsg=" + queryResponse.getString("msg") + String.format("|%s|%s", queryResponse.getString("sub_code"), queryResponse.getString("sub_msg")));
+        }
+        String downloadUrl = queryResponse.getString("bill_download_url");
+        BillResponse response = new BillResponse();
+        response.setDownloadUrl(downloadUrl);
+        if(BillDataType.FILE_STEAM == downloadBillRequest.getBillDataType()){
+            HttpStringEntity entity = new HttpStringEntity(new HashMap<>(),"UTF-8");
+            ResponseEntity<InputStream> responseEntity = requestTemplate.doExecuteEntity(downloadUrl, entity, InputStream.class, MethodType.GET);
+            InputStream inputStream = responseEntity.getBody();
+            int statusCode = responseEntity.getStatusCode();
+            if (statusCode >= 400) {
+                try {
+                    String errorText = IOUtils.toString(inputStream);
+                    throw new PayErrorException(new WxPayError(statusCode + "" , errorText));
+                }
+                catch (IOException e) {
+                    throw new PayErrorException(new WxPayError(statusCode + "", ""));
+                }
+            }
+            response.setInputStream(inputStream);
+            response.setBillDataType(BillDataType.FILE_STEAM);
+        }else{
+            response.setBillDataType(BillDataType.DOWN_URL);
+        }
+        return response;
     }
 
     @Override

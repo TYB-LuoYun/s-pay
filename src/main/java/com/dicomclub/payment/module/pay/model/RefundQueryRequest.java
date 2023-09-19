@@ -20,8 +20,14 @@ public class RefundQueryRequest {
      */
     private String refundNo = "";
 
+
     /**
-     * 外部
+     * 内部订单号
      */
-    private String outRefundNo = "";
+    private String orderNo = "";
+
+    /**
+     * 外部订单号(例如微信生成的)
+     */
+    private String outOrderNo = "";
 }
