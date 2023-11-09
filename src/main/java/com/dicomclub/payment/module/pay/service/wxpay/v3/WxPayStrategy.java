@@ -145,6 +145,8 @@ public class WxPayStrategy extends PayStrategy {
 //       交易类型判断
         WxTransactionType wxTransactionType = null;
         PayChannel payChannel = request.getPayChannel();
+        WxPayResponse wxPayResponse = new WxPayResponse();
+        wxPayResponse.setChannelState(ChannelState.WAITING);
         if(PayChannel.WXPAY_MINI == payChannel ||PayChannel.WXPAY_MP == payChannel){
             wxTransactionType = WxTransactionType.JSAPI;
         }else if(PayChannel.WXPAY_APP == payChannel){
@@ -152,15 +154,20 @@ public class WxPayStrategy extends PayStrategy {
         }else if(PayChannel.WXPAY_MICRO == payChannel  ){
             wxTransactionType = WxTransactionType.NATIVE;
         }else if(PayChannel.WXPAY_NATIVE == payChannel){
+            payRequest.setPayDataType(PayDataType.CODE_URL);
             wxTransactionType = WxTransactionType.NATIVE;
         }else if(PayChannel.WXPAY_MWEB == payChannel){
             wxTransactionType = WxTransactionType.H5;
         }
-        WxPayResponse wxPayResponse = new WxPayResponse();
+
 
         //如果是扫码支付或者刷卡付无需处理，直接返回
         if (wxTransactionType.isReturn()) {
-            wxPayResponse.setDataMap(result);
+            if(payRequest.getPayDataType()!=null&&PayDataType.CODE_URL == payRequest.getPayDataType()){
+                wxPayResponse.setCodeUrl(result.getString("code_url"));
+            }else{
+                wxPayResponse.setDataMap(result);
+            }
             return wxPayResponse;
         }
         Map<String, Object> params = new LinkedHashMap<>();
@@ -217,6 +224,7 @@ public class WxPayStrategy extends PayStrategy {
             String refundId = resultJSON.getString("refund_id");
             channelStateRes.setChannelState(ChannelState.CONFIRM_SUCCESS);
             refundResponse.setOutRefundNo(refundId);
+            refundResponse.setFinishTime(resultJSON.getString("success_time"));
         }else if ("PROCESSING".equals(status)){ // 退款处理中
             String refundId = resultJSON.getString("refund_id");
             channelStateRes.setChannelState(ChannelState.WAITING);
@@ -523,7 +531,7 @@ public class WxPayStrategy extends PayStrategy {
 
     private String getOpenid(String code ,WxPayConfig config,PayChannel payChannel) {
         String urlstr= null;
-        if(payChannel == PayChannel.WXPAY_MINI){
+        if(payChannel == PayChannel.WXPAY_MINI  ){
             urlstr="https://api.weixin.qq.com/sns/jscode2session?appid="+config.getAppId()+"&secret="+config.getAppSecret()+"&js_code="+code+"&grant_type=authorization_code";
 
         }else{
@@ -544,7 +552,7 @@ public class WxPayStrategy extends PayStrategy {
         if(openid==null){
             //ServletActionContext.getResponse().getWriter().write("[openid为空]");
             openid="souaitoysyha";
-            throw new PayException("openid获取错误");
+            throw new PayException("openid获取错误"+ map.get("errmsg"));
         }else{
             //ServletActionContext.getResponse().getWriter().write("[openid不为空]"+ openid);
         }
@@ -769,14 +777,16 @@ public class WxPayStrategy extends PayStrategy {
         resultJSON =  assistService.doExecute(parameters, WxTransactionType.REFUND_QUERY,wxPayConfig, refundNo);
         String status = resultJSON.getString("status");
         ChannelStateRes channelStateRes = new ChannelStateRes();
+        RefundResponse refundResponse = new RefundResponse();
         channelStateRes.setData(resultJSON);
         if("SUCCESS".equals(status)){ // 退款成功
             channelStateRes.setChannelState(ChannelState.CONFIRM_SUCCESS);
+            refundResponse.setFinishTime(resultJSON.getString("success_time"));
         }else{
             channelStateRes.setChannelState(ChannelState.WAITING);
             channelStateRes.setMsg(status);
         }
-        RefundResponse refundResponse = new RefundResponse();
+
         refundResponse.setChannelStateRes(channelStateRes);
         return refundResponse;
     }
