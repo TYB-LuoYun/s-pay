@@ -1,13 +1,14 @@
 package com.dicomclub.payment.module.pay.service.alipay.enums;
 
 import com.dicomclub.payment.module.pay.model.common.BillType;
+import com.dicomclub.payment.module.pay.service.wxpay.v3.model.WxBillType;
 import com.dicomclub.payment.util.DateUtils;
 
 /**
  * @author ftm
  * @date 2023/4/24 0024 16:26
  */
-public  enum  AliPayBillType implements BillType {
+public  enum  AliPayBillType  implements BillType {
     /**
      * 商户基于支付宝交易收单的业务账单；每日账单
      */
